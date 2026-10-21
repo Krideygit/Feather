@@ -1,6 +1,7 @@
 
-export type ServiceType = 'mariadb' | 'nginx' | 'apache';
-export type Category = 'database' | 'webserver';
+export type ServiceType = 'mariadb' | 'nginx' | 'apache' | 'minecraft' | 'paper' | 'fivem';
+export type Category = 'database' | 'webserver' | 'package';
+export type OptionValue = string | number | boolean;
 export type Status = 'running' | 'starting' | 'stopping' | 'stopped' | 'error';
 
 export interface Connection {
@@ -22,6 +23,7 @@ export interface Service {
   autoStart: boolean;
   spa: boolean;
   autoindex: boolean;
+  options: Record<string, OptionValue>;
   createdAt: number;
   category: Category;
   dir: string;
@@ -84,6 +86,18 @@ export interface DbInfo {
   sizeKb: number;
   tables: number;
   system: boolean;
+}
+
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  key: string;
+}
+
+export interface TableInfo {
+  name: string;
+  view: boolean;
+  columns: ColumnInfo[];
 }
 
 export interface DbUser {

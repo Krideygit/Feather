@@ -1,5 +1,5 @@
-import { Eraser } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Eraser, SendHorizontal } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { attempt, call } from '../lib/api';
 import { useBus } from '../lib/store';
 
@@ -12,8 +12,18 @@ function lineClass(line: string): string {
   return 'text-neutral-300';
 }
 
-export function LogsTab({ id, active }: { id: string; active: boolean }) {
+interface LogsProps {
+  id: string;
+  active: boolean;
+  commandable?: boolean;
+  running?: boolean;
+}
+
+export function LogsTab({ id, active, commandable = false, running = false }: LogsProps) {
   const [lines, setLines] = useState<string[]>([]);
+  const [command, setCommand] = useState('');
+  const history = useRef<string[]>([]);
+  const cursor = useRef(-1);
   const pending = useRef<string[]>([]);
   const box = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -39,6 +49,24 @@ export function LogsTab({ id, active }: { id: string; active: boolean }) {
     if (e.id === id) pending.current.push(e.line);
   });
 
+  async function send(): Promise<void> {
+    const line = command.trim();
+    if (!line) return;
+    history.current = [line, ...history.current.filter((h) => h !== line)].slice(0, 50);
+    cursor.current = -1;
+    setCommand('');
+    await attempt(call('service.command', { id, line }));
+  }
+
+  function browse(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Enter') return void send();
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    const next = Math.max(-1, Math.min(history.current.length - 1, cursor.current + (event.key === 'ArrowUp' ? 1 : -1)));
+    cursor.current = next;
+    setCommand(next < 0 ? '' : (history.current[next] ?? ''));
+  }
+
   useLayoutEffect(() => {
     const el = box.current;
     if (el && (stick.current || active)) el.scrollTop = el.scrollHeight;
@@ -62,7 +90,7 @@ export function LogsTab({ id, active }: { id: string; active: boolean }) {
       </div>
       <div
         ref={box}
-        className="flex-1 min-h-0 mx-5 mb-5 rounded-lg bg-black/40 border border-neutral-800 overflow-y-auto"
+        className={`flex-1 min-h-0 mx-5 ${commandable ? 'mb-3' : 'mb-5'} rounded-lg bg-black/40 border border-neutral-800 overflow-y-auto`}
         onScroll={(e) => {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -78,6 +106,23 @@ export function LogsTab({ id, active }: { id: string; active: boolean }) {
           )}
         </pre>
       </div>
+      {commandable && (
+        <div className="flex gap-2 px-5 pb-5 shrink-0">
+          <input
+            className="input font-mono"
+            value={command}
+            disabled={!running}
+            placeholder={running ? 'Befehl eingeben, Enter sendet' : 'Starte den Service, um Befehle zu senden'}
+            spellCheck={false}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyDown={browse}
+            data-bind="command"
+          />
+          <button className="btn btn-primary btn-icon shrink-0" disabled={!running || !command.trim()} onClick={() => void send()} aria-label="Befehl senden" title="Befehl senden">
+            <SendHorizontal className="size-4" />
+          </button>
+        </div>
+      )}
     </>
   );
 }

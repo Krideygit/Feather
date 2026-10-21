@@ -1,13 +1,15 @@
-import { ChevronRight, Database, Download, FolderOpen, Globe, Plus } from 'lucide-react';
+import { ChevronRight, Database, Download, FolderOpen, Globe, Package, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Catalog, CatalogVersion, Category, RuntimePhase, Service, ServiceType } from '../../shared/types';
+import type { Catalog, CatalogVersion, Category, OptionValue, RuntimePhase, Service, ServiceType } from '../../shared/types';
 import { Notice } from '../components/Bits';
 import { Field, PasswordInput, Toggle } from '../components/Form';
 import { Modal, openLayer } from '../components/Layers';
+import { PackageOptions } from '../components/PackageOptions';
 import { toast } from '../components/Toast';
 import { TypeIcon } from '../components/TypeIcon';
 import { applyServiceView, attempt, call, isInstalled, refreshRuntimes } from '../lib/api';
 import { formatBytes } from '../lib/format';
+import { GROUPS, PACKAGES, defaultOptions, isAvailable, type PackageDef } from '../lib/packages';
 import { CATEGORIES, TYPES } from '../lib/services';
 import { getState, useAppState, useBus } from '../lib/store';
 
@@ -17,14 +19,15 @@ export function openChooser(): void {
       <div className="grid gap-3">
         {(Object.keys(CATEGORIES) as Category[]).map((key) => {
           const cfg = CATEGORIES[key];
-          const Icon = key === 'database' ? Database : Globe;
+          const Icon = key === 'database' ? Database : key === 'webserver' ? Globe : Package;
           return (
             <button
               key={key}
               className="card card-hover flex items-center gap-4 p-4 text-left"
               onClick={() => {
                 close();
-                openCreateDialog(key);
+                if (key === 'package') openPackageChooser();
+                else openCreateDialog(key);
               }}
             >
               <div className="size-11 rounded-xl bg-primary/10 text-primary grid place-items-center shrink-0">
@@ -43,7 +46,50 @@ export function openChooser(): void {
   ));
 }
 
-export const openCreateDialog = (category: Category): void => openLayer((close) => <CreateDialog category={category} onClose={close} />);
+export const openCreateDialog = (category: Category, pkg?: PackageDef): void =>
+  openLayer((close) => <CreateDialog category={category} pkg={pkg} onClose={close} />);
+
+export function openPackageChooser(): void {
+  openLayer((close) => (
+    <Modal title="Package hinzufügen" subtitle="Wähle ein Package aus einer Kategorie" size="max-w-xl" onClose={close}>
+      <div className="space-y-5">
+        {GROUPS.map((group) => {
+          const items = PACKAGES.filter((p) => p.group === group.id);
+          return (
+            <section key={group.id}>
+              <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">
+                <group.icon className="size-3.5" />
+                {group.label}
+              </h3>
+              <div className="grid gap-2">
+                {items.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    disabled={!isAvailable(pkg)}
+                    className="card card-hover flex items-center gap-3 p-3 text-left disabled:opacity-50 disabled:pointer-events-none"
+                    onClick={() => {
+                      close();
+                      openCreateDialog('package', pkg);
+                    }}
+                  >
+                    <div className="size-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+                      <pkg.icon className="size-[18px]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-neutral-100">{pkg.name}</p>
+                      <p className="text-xs text-neutral-500 truncate">{pkg.description}</p>
+                    </div>
+                    {isAvailable(pkg) ? <ChevronRight className="size-4 text-neutral-600" /> : <span className="text-[11px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">Bald</span>}
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </Modal>
+  ));
+}
 
 const PHASE_TEXT: Record<RuntimePhase | 'create', (label: string) => string> = {
   download: (label) => `${label} wird heruntergeladen …`,
@@ -76,12 +122,15 @@ interface Busy {
   total: number;
 }
 
-function CreateDialog({ category, onClose }: { category: Category; onClose: () => void }) {
+function CreateDialog({ category, pkg, onClose }: { category: Category; pkg?: PackageDef; onClose: () => void }) {
   const cfg = CATEGORIES[category];
+  const types = pkg?.types ?? cfg.types;
+  const title = pkg ? pkg.name : cfg.singular;
   const web = category === 'webserver';
+  const isPackage = category === 'package';
   useAppState((s) => s.installed);
 
-  const [type, setType] = useState<ServiceType>(cfg.types[0]);
+  const [type, setType] = useState<ServiceType>(types[0]);
   const [name, setName] = useState('');
   const [version, setVersion] = useState('');
   const [catalog, setCatalog] = useState<Catalog>({ versions: [], online: true });
@@ -92,6 +141,7 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
   const [spa, setSpa] = useState(false);
   const [autoindex, setAutoindex] = useState(false);
   const [start, setStart] = useState(true);
+  const [options, setOptions] = useState<Record<string, OptionValue>>(() => defaultOptions(types[0]));
   const [busy, setBusy] = useState<Busy | null>(null);
   const nameTouched = useRef(false);
 
@@ -99,6 +149,7 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
     let cancelled = false;
     setLoading(true);
     setVersion('');
+    setOptions(defaultOptions(type));
     void Promise.all([
       attempt(call<Catalog>('catalog.versions', { type })),
       attempt(call<{ port: number }>('port.suggest', { preferred: TYPES[type].defaultPort })),
@@ -126,6 +177,8 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
     if (!name.trim()) return void toast('Bitte gib einen Namen an.', 'error');
     if (!Number.isInteger(portNumber)) return void toast('Bitte gib einen gültigen Port an.', 'error');
     if (web && !folder.trim()) return void toast('Bitte wähle einen Ordner aus.', 'error');
+    if (type === 'fivem' && !String(options.licenseKey ?? '').trim()) return void toast('Bitte gib deinen FiveM-Lizenzschlüssel ein.', 'error');
+    if (isPackage && type !== 'fivem' && options.eula !== true) return void toast('Bitte akzeptiere die Minecraft-EULA.', 'error');
 
     setBusy({ phase: isInstalled(type, version) ? 'create' : 'download', percent: -1, bytes: 0, total: 0 });
     if (!isInstalled(type, version)) {
@@ -141,7 +194,8 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
         name: name.trim(),
         port: portNumber,
         folder: web ? folder.trim() : undefined,
-        password: web ? undefined : password,
+        password: category === 'database' ? password : undefined,
+        options: isPackage ? options : undefined,
         spa,
         autoindex,
       }),
@@ -164,7 +218,7 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
   if (busy) {
     const indeterminate = busy.percent < 0 || busy.phase !== 'download';
     return (
-      <Modal title={`${cfg.singular} erstellen`} size="max-w-xl" onClose={onClose} dismissible={false} footer={<button className="btn btn-ghost" onClick={onClose}>Im Hintergrund fortsetzen</button>}>
+      <Modal title={`${title} erstellen`} size="max-w-xl" onClose={onClose} dismissible={false} footer={<button className="btn btn-ghost" onClick={onClose}>Im Hintergrund fortsetzen</button>}>
         <div className="py-8 text-center">
           <div className="size-12 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto animate-pulse">
             <Download className="size-6" />
@@ -184,8 +238,8 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
   const selected = catalog.versions.find((v) => v.id === version);
   return (
     <Modal
-      title={`${cfg.singular} erstellen`}
-      subtitle={web ? 'Lokaler Webserver für einen Projektordner' : 'Lokale MariaDB-Instanz'}
+      title={`${title} erstellen`}
+      subtitle={pkg ? pkg.description : web ? 'Lokaler Webserver für einen Projektordner' : 'Lokale MariaDB-Instanz'}
       size="max-w-xl"
       onClose={onClose}
       footer={
@@ -199,11 +253,11 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
       }
     >
       <div className="space-y-4">
-        {web && (
+        {types.length > 1 && (
           <div>
-            <label className="label">Server</label>
+            <label className="label">{isPackage ? 'Variante' : 'Server'}</label>
             <div className="grid grid-cols-2 gap-2">
-              {cfg.types.map((t) => (
+              {types.map((t) => (
                 <button
                   key={t}
                   className={`flex items-center gap-2.5 rounded-lg border px-3 h-11 text-sm font-medium transition-colors ${type === t ? 'border-primary bg-primary/10 text-primary' : 'border-neutral-700 text-neutral-300 hover:bg-neutral-800'}`}
@@ -258,12 +312,14 @@ function CreateDialog({ category, onClose }: { category: Category; onClose: () =
           <Field label="Port">
             <input className="input font-mono" value={port} inputMode="numeric" onChange={(e) => setPort(e.target.value)} />
           </Field>
-          {!web && (
+          {category === 'database' && (
             <Field label="Root-Passwort">
               <PasswordInput value={password} onChange={setPassword} placeholder="leer lassen für keins" />
             </Field>
           )}
         </div>
+
+        {isPackage && <PackageOptions type={type} options={options} onChange={setOptions} showEula={type !== 'fivem'} />}
 
         {web && (
           <>

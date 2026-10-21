@@ -16,7 +16,7 @@ const NAV: { route: Route; label: string; icon: LucideIcon; soon?: boolean }[] =
   { route: 'dashboard', label: 'Übersicht', icon: LayoutDashboard },
   { route: 'database', label: 'Datenbanken', icon: Database },
   { route: 'webserver', label: 'Webserver', icon: Globe },
-  { route: 'packages', label: 'Packages', icon: Package, soon: true },
+  { route: 'packages', label: 'Packages', icon: Package },
 ];
 
 const ROUTES = NAV.map((n) => n.route);
@@ -61,7 +61,10 @@ function Sidebar() {
     }
   };
 
-  const count = (r: Route): number => (r === 'database' || r === 'webserver' ? services.filter((s) => s.category === r).length : 0);
+  const count = (r: Route): number => {
+    const category = r === 'packages' ? 'package' : r;
+    return category === 'database' || category === 'webserver' || category === 'package' ? services.filter((s) => s.category === category).length : 0;
+  };
 
   return (
     <aside className="w-60 shrink-0 border-r border-neutral-800/80 flex flex-col px-3 py-4">

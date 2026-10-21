@@ -87,6 +87,16 @@ export function OverviewTab({ service: svc }: { service: Service }) {
               </button>
             </div>
           </>
+        ) : svc.category === 'package' ? (
+          <>
+            <CopyRow label="Server-Adresse" value={conn.url} />
+            <CopyRow label="Port" value={String(svc.port)} />
+            <p className="hint">
+              {svc.type === 'fivem'
+                ? `Im FiveM-Client mit F8 die Konsole öffnen und "connect ${conn.url}" eingeben.`
+                : 'In Minecraft unter Mehrspieler die Server-Adresse als Direktverbindung eintragen.'}
+            </p>
+          </>
         ) : (
           <>
             <Row label="URL">
@@ -114,6 +124,13 @@ export function OverviewTab({ service: svc }: { service: Service }) {
           <>
             <Row label="Läuft"><span className="text-sm text-neutral-100">{formatUptime(svc.startedAt)}</span></Row>
             <Row label="Prozess-ID"><span className="text-sm text-neutral-100 font-mono">{svc.pid}</span></Row>
+          </>
+        )}
+        {svc.category === 'package' && (
+          <>
+            {svc.type !== 'fivem' && <Row label="Arbeitsspeicher"><span className="text-sm text-neutral-100">{String(svc.options.memory ?? '')}</span></Row>}
+            <Row label="Max. Spieler"><span className="text-sm text-neutral-100">{String(svc.options.maxPlayers ?? svc.options.maxClients ?? '')}</span></Row>
+            <Row label="Erreichbar"><span className="text-sm text-neutral-100">{svc.options.lan === true ? 'Im Netzwerk' : 'Nur dieser Rechner'}</span></Row>
           </>
         )}
         <Row label="Automatisch starten"><span className="text-sm text-neutral-100">{svc.autoStart ? 'Ja' : 'Nein'}</span></Row>

@@ -114,6 +114,10 @@ public final class ServiceManager {
             s.spa = Boolean.TRUE.equals(p.get("spa"));
             s.autoindex = Boolean.TRUE.equals(p.get("autoindex"));
             s.password = "";
+        } else if (s.category().equals("package")) {
+            s.password = "";
+            s.folder = "";
+            s.options = Drivers.of(s).options(asMap(p.get("options")), Map.of(), true);
         } else {
             s.password = p.get("password") == null ? "" : String.valueOf(p.get("password"));
             s.folder = "";
@@ -134,7 +138,7 @@ public final class ServiceManager {
         if (p.containsKey("autoStart")) s.autoStart = Boolean.TRUE.equals(p.get("autoStart"));
 
         boolean needsStopped = p.containsKey("port") || p.containsKey("folder") || p.containsKey("spa")
-                || p.containsKey("autoindex") || p.containsKey("version");
+                || p.containsKey("autoindex") || p.containsKey("version") || p.containsKey("options");
         if (needsStopped && live) throw new IllegalStateException("Stoppe den Service, um diese Einstellungen zu ändern.");
 
         if (p.containsKey("port")) {
@@ -143,6 +147,7 @@ public final class ServiceManager {
             s.port = port;
         }
         if (p.containsKey("folder") && s.category().equals("webserver")) s.folder = validFolder(str(p, "folder"));
+        if (p.containsKey("options") && s.category().equals("package")) s.options = Drivers.of(s).options(asMap(p.get("options")), s.options, false);
         if (p.containsKey("spa")) s.spa = Boolean.TRUE.equals(p.get("spa"));
         if (p.containsKey("autoindex")) s.autoindex = Boolean.TRUE.equals(p.get("autoindex"));
         if (p.containsKey("version") && s.category().equals("webserver")) {
@@ -175,6 +180,7 @@ public final class ServiceManager {
             s.status = "starting";
             s.error = null;
             s.stopRequested = false;
+            s.readyLogged = false;
         }
         emitStatus(s);
         pool.submit(() -> runStart(s));
@@ -205,7 +211,7 @@ public final class ServiceManager {
             }
             Files.createDirectories(s.dir());
             ProcessBuilder pb = new ProcessBuilder(driver.command(s, base))
-                    .directory(base.toFile())
+                    .directory(driver.workDir(s, base).toFile())
                     .redirectErrorStream(true);
             List<Path> logFiles = driver.logFiles(s);
             long[] startPos = new long[logFiles.size()];
@@ -223,7 +229,7 @@ public final class ServiceManager {
             }
             proc.onExit().thenAccept(p -> onExit(s, p));
 
-            boolean up = Net.waitForPort(s.port, driver.startTimeoutMs(), proc::isAlive);
+            boolean up = waitUntilReady(s, driver, proc);
             if (!up) {
                 if (proc.isAlive()) {
                     Drivers.kill(proc);
@@ -242,6 +248,16 @@ public final class ServiceManager {
             log(s, "[feather] Fehler: " + s.error);
             emitStatus(s);
         }
+    }
+
+    private boolean waitUntilReady(Service s, Drivers.Driver driver, Process proc) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + driver.startTimeoutMs();
+        while (System.currentTimeMillis() < deadline) {
+            if (Net.isOpen(s.port) && (driver.readyLine() == null || s.readyLogged)) return true;
+            if (!proc.isAlive()) return false;
+            Thread.sleep(250);
+        }
+        return false;
     }
 
     private String lastLines(Service s) {
@@ -356,7 +372,31 @@ public final class ServiceManager {
         }
     }
 
-    void log(Service s, String line) {
+    private static final java.util.regex.Pattern ANSI = java.util.regex.Pattern.compile("\u001B\\[[0-9;?]*[A-Za-z]");
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object o) {
+        return o instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+    }
+
+    public void sendCommand(String id, String line) throws IOException {
+        Service s = get(id);
+        Process p = s.process;
+        if (p == null || !p.isAlive() || !s.status.equals("running")) throw new IllegalStateException("Der Service läuft nicht.");
+        if (!Drivers.of(s).supportsCommands()) throw new IllegalStateException("Dieser Service nimmt keine Befehle entgegen.");
+        String cmd = line.replaceAll("[\r\n]+", " ").trim();
+        if (cmd.isEmpty()) return;
+        log(s, "> " + cmd);
+        p.getOutputStream().write((cmd + "\n").getBytes(StandardCharsets.UTF_8));
+        p.getOutputStream().flush();
+    }
+
+    void log(Service s, String rawLine) {
+        String line = ANSI.matcher(rawLine).replaceAll("");
+        if (!s.readyLogged) {
+            java.util.regex.Pattern ready = Drivers.of(s).readyLine();
+            if (ready != null && ready.matcher(line).find()) s.readyLogged = true;
+        }
         Deque<String> d = logs.computeIfAbsent(s.id, k -> new ArrayDeque<>());
         synchronized (d) {
             d.addLast(line);

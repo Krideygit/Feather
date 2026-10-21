@@ -1,6 +1,7 @@
 package feather;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class Service {
@@ -14,6 +15,7 @@ public final class Service {
     public boolean autoStart;
     public boolean spa;
     public boolean autoindex;
+    public Map<String, Object> options = new LinkedHashMap<>();
     public long createdAt;
 
     volatile String status = "stopped";
@@ -22,9 +24,14 @@ public final class Service {
     volatile long startedAt;
     transient volatile Process process;
     transient volatile boolean stopRequested;
+    transient volatile boolean readyLogged;
 
     public String category() {
-        return type.equals("mariadb") ? "database" : "webserver";
+        return switch (type) {
+            case "mariadb" -> "database";
+            case "nginx", "apache" -> "webserver";
+            default -> "package";
+        };
     }
 
     public Path dir() {
@@ -35,7 +42,7 @@ public final class Service {
         return Json.obj(
                 "id", id, "name", name, "type", type, "version", version, "port", (long) port,
                 "folder", folder, "password", password, "autoStart", autoStart,
-                "spa", spa, "autoindex", autoindex, "createdAt", createdAt);
+                "spa", spa, "autoindex", autoindex, "options", options, "createdAt", createdAt);
     }
 
     public Map<String, Object> toView() {
@@ -67,6 +74,12 @@ public final class Service {
         s.autoStart = Boolean.TRUE.equals(m.get("autoStart"));
         s.spa = Boolean.TRUE.equals(m.get("spa"));
         s.autoindex = Boolean.TRUE.equals(m.get("autoindex"));
+        if (m.get("options") instanceof Map<?, ?> opts) {
+            for (Map.Entry<?, ?> e : opts.entrySet()) {
+                Object v = e.getValue();
+                if (v instanceof String || v instanceof Boolean || v instanceof Number) s.options.put(String.valueOf(e.getKey()), v);
+            }
+        }
         s.createdAt = m.get("createdAt") == null ? System.currentTimeMillis() : ((Number) m.get("createdAt")).longValue();
         return s;
     }

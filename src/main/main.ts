@@ -275,6 +275,7 @@ interface CaptureStep {
   shot?: string;
   log?: boolean;
   close?: boolean;
+  connect?: [string, string];
 }
 
 function captureAndExit(window: BrowserWindow, file: string): void {
@@ -290,6 +291,23 @@ function captureAndExit(window: BrowserWindow, file: string): void {
   });
 }
 
+async function dragBetween(window: BrowserWindow, from: string, to: string): Promise<void> {
+  const center = (selector: string): Promise<[number, number]> =>
+    window.webContents.executeJavaScript(
+      `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]; })()`,
+    ) as Promise<[number, number]>;
+  const [x1, y1] = await center(from);
+  const [x2, y2] = await center(to);
+  const wc = window.webContents;
+  wc.sendInputEvent({ type: 'mouseMove', x: x1, y: y1 });
+  wc.sendInputEvent({ type: 'mouseDown', x: x1, y: y1, button: 'left', clickCount: 1 });
+  for (let i = 1; i <= 12; i++) {
+    wc.sendInputEvent({ type: 'mouseMove', x: Math.round(x1 + ((x2 - x1) * i) / 12), y: Math.round(y1 + ((y2 - y1) * i) / 12) });
+    await wait(15);
+  }
+  wc.sendInputEvent({ type: 'mouseUp', x: x2, y: y2, button: 'left', clickCount: 1 });
+}
+
 async function runCapture(window: BrowserWindow, target: string): Promise<void> {
   const actions = process.env.FEATHER_ACTIONS;
   if (actions) {
@@ -300,6 +318,7 @@ async function runCapture(window: BrowserWindow, target: string): Promise<void> 
         const out: unknown = await window.webContents.executeJavaScript(step.js);
         if (step.log) console.log('[step]', typeof out === 'string' ? out : JSON.stringify(out));
       }
+      if (step.connect) await dragBetween(window, step.connect[0], step.connect[1]);
       if (step.close) {
         window.close();
         await wait(300);

@@ -36,7 +36,7 @@ export function ServiceCard({ service: s }: { service: Service }) {
       <dl className="mt-4 space-y-1.5 text-[13px]">
         <div className="flex items-center gap-2 text-neutral-400">
           <Link className="size-3.5" />
-          <span className="font-mono">{web ? `localhost:${s.port}` : `127.0.0.1:${s.port}`}</span>
+          <span className="font-mono">{s.category === 'database' ? `127.0.0.1:${s.port}` : `localhost:${s.port}`}</span>
         </div>
         {web && (
           <div className="flex items-center gap-2 text-neutral-400 min-w-0">

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +30,22 @@ public final class Drivers {
         long startTimeoutMs() {
             return 30_000;
         }
+
+        Path workDir(Service s, Path base) {
+            return base;
+        }
+
+        java.util.regex.Pattern readyLine() {
+            return null;
+        }
+
+        boolean supportsCommands() {
+            return false;
+        }
+
+        Map<String, Object> options(Map<String, Object> input, Map<String, Object> current, boolean creating) {
+            return new LinkedHashMap<>();
+        }
     }
 
     public static Driver of(Service s) {
@@ -36,6 +53,8 @@ public final class Drivers {
             case "mariadb" -> MARIADB;
             case "nginx" -> NGINX;
             case "apache" -> APACHE;
+            case "minecraft", "paper" -> PackageDrivers.MINECRAFT;
+            case "fivem" -> PackageDrivers.FIVEM;
             default -> throw new IllegalArgumentException("Unbekannter Typ: " + s.type);
         };
     }

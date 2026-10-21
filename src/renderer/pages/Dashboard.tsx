@@ -1,10 +1,10 @@
-import { Activity, ChevronRight, Database, Globe, HardDrive, Play, Square, type LucideIcon } from 'lucide-react';
+import { Activity, ChevronRight, Database, Globe, HardDrive, Package, Play, Square, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Service } from '../../shared/types';
 import { PageHeader, StatusBadge } from '../components/Bits';
 import { TypeIcon } from '../components/TypeIcon';
 import { openServiceDrawer } from '../drawer/ServiceDrawer';
-import { openChooser, openCreateDialog } from '../dialogs/CreateService';
+import { openChooser, openCreateDialog, openPackageChooser } from '../dialogs/CreateService';
 import { openGeneralDialog } from '../dialogs/Runtimes';
 import { formatBytes } from '../lib/format';
 import { TYPES, isActive, toggleService } from '../lib/services';
@@ -59,6 +59,7 @@ function Row({ service: s }: { service: Service }) {
 const QUICK_START = [
   { icon: Database, title: 'Datenbank erstellen', text: 'MariaDB mit einem Klick: Download, Einrichtung und Start inklusive.', category: 'database' },
   { icon: Globe, title: 'Webserver erstellen', text: 'Einen Ordner über Nginx oder Apache unter localhost ausliefern.', category: 'webserver' },
+  { icon: Package, title: 'Package hinzufügen', text: 'Minecraft- oder FiveM-Server und mehr, nach Kategorien sortiert.', category: 'package' },
 ] as const;
 
 export function DashboardPage() {
@@ -82,13 +83,14 @@ export function DashboardPage() {
           <Stat icon={Activity} label="Laufende Services" value={`${running} / ${services.length}`} sub={running ? 'aktiv' : 'nichts gestartet'} />
           <Stat icon={Database} label="Datenbanken" value={services.filter((s) => s.category === 'database').length} />
           <Stat icon={Globe} label="Webserver" value={services.filter((s) => s.category === 'webserver').length} />
+          <Stat icon={Package} label="Packages" value={services.filter((s) => s.category === 'package').length} />
           <Stat icon={HardDrive} label="Installierte Runtimes" value={installed.length} sub={size ? formatBytes(size) : 'noch nichts geladen'} />
         </div>
 
         {services.length === 0 ? (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
             {QUICK_START.map(({ icon: Icon, title, text, category }) => (
-              <button key={category} className="card card-hover text-left p-6 group" onClick={() => openCreateDialog(category)} data-action={`create:${category}`}>
+              <button key={category} className="card card-hover text-left p-6 group" onClick={() => (category === 'package' ? openPackageChooser() : openCreateDialog(category))} data-action={`create:${category}`}>
                 <div className="size-11 rounded-xl bg-primary/10 text-primary grid place-items-center">
                   <Icon className="size-6" />
                 </div>

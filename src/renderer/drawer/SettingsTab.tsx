@@ -1,7 +1,8 @@
 import { Check, FolderOpen, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import type { Service } from '../../shared/types';
+import type { OptionValue, Service } from '../../shared/types';
 import { Notice } from '../components/Bits';
+import { PackageOptions } from '../components/PackageOptions';
 import { Field, Toggle } from '../components/Form';
 import { confirmDialog } from '../components/Layers';
 import { toast } from '../components/Toast';
@@ -20,6 +21,8 @@ export function SettingsTab({ service: svc, onDeleted }: { service: Service; onD
   const [spa, setSpa] = useState(svc.spa);
   const [autoindex, setAutoindex] = useState(svc.autoindex);
   const [autoStart, setAutoStart] = useState(svc.autoStart);
+  const [options, setOptions] = useState<Record<string, OptionValue>>(svc.options);
+  const isPackage = svc.category === 'package';
 
   const versions = installed.filter((r) => r.type === svc.type).map((r) => r.version);
 
@@ -28,6 +31,7 @@ export function SettingsTab({ service: svc, onDeleted }: { service: Service; onD
     if (!locked) {
       patch.port = Number(port);
       if (web) Object.assign(patch, { folder, version, spa, autoindex });
+      if (isPackage) patch.options = options;
     }
     const view = await attempt(call<Service>('service.update', patch));
     if (view) {
@@ -46,7 +50,9 @@ export function SettingsTab({ service: svc, onDeleted }: { service: Service; onD
       title: `„${svc.name}“ löschen?`,
       message: web
         ? 'Der Service und seine Konfiguration werden gelöscht. Dein Projektordner bleibt unberührt.'
-        : 'Der Service und alle seine Datenbanken werden unwiderruflich gelöscht.',
+        : isPackage
+          ? 'Der Service samt Welt- und Serverdaten wird unwiderruflich gelöscht.'
+          : 'Der Service und alle seine Datenbanken werden unwiderruflich gelöscht.',
       confirmLabel: 'Löschen',
       danger: true,
     });
@@ -80,6 +86,7 @@ export function SettingsTab({ service: svc, onDeleted }: { service: Service; onD
             )}
           </Field>
         </div>
+        {isPackage && <PackageOptions type={svc.type} options={options} onChange={setOptions} locked={locked} />}
         {web && (
           <>
             <Field label="Ordner">
@@ -109,7 +116,7 @@ export function SettingsTab({ service: svc, onDeleted }: { service: Service; onD
       </div>
       <section className="mt-8 rounded-xl border border-red-500/20 p-4">
         <h3 className="text-sm font-medium text-red-300">Gefahrenzone</h3>
-        <p className="text-sm text-neutral-500 mt-1">{web ? 'Löscht den Service. Dein Projektordner bleibt erhalten.' : 'Löscht den Service inklusive aller Datenbanken.'}</p>
+        <p className="text-sm text-neutral-500 mt-1">{web ? 'Löscht den Service. Dein Projektordner bleibt erhalten.' : isPackage ? 'Löscht den Service inklusive aller Server- und Weltdaten.' : 'Löscht den Service inklusive aller Datenbanken.'}</p>
         <button className="btn btn-danger btn-sm mt-3 border border-red-500/30" onClick={() => void remove()}>
           <Trash2 className="size-3.5" />
           Service löschen

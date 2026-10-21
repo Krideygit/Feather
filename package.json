@@ -15,7 +15,8 @@
     "start": "npm run build && electron .",
     "dev": "node scripts/dev.js",
     "smoke": "node scripts/smoke-core.js",
-    "dist": "npm run typecheck && npm run build && electron-builder"
+    "dist": "npm run typecheck && npm run build && electron-builder",
+    "test": "node scripts/test-blueprint.js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
@@ -30,6 +31,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@xyflow/react": "^12.12.0",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

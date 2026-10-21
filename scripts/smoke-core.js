@@ -133,6 +133,53 @@ async function mariadbTest() {
   await call('service.delete', { id: svc.id });
 }
 
+async function minecraftTest(type) {
+  step(type);
+  const version = await ensureRuntime(type);
+  const { port } = await call('port.suggest', { preferred: 25565 });
+  await call('service.create', { type, name: 'bad', version, port, options: { eula: false } }).then(
+    () => { throw new Error('creating without EULA must fail'); },
+    (e) => console.log('  without EULA refused:', e.message.slice(0, 50)),
+  );
+  const svc = await call('service.create', { type, name: 'smoke-' + type, version, port, options: { eula: true, memory: '1G', motd: 'Feather Test', maxPlayers: 5, onlineMode: false } });
+  await call('service.start', { id: svc.id });
+  await waitStatus(svc.id, 'running', 300000);
+  await call('service.command', { id: svc.id, line: 'say feather' });
+  await sleep(3000);
+  const lines = await call('service.logs', { id: svc.id, lines: 200 });
+  const hit = lines.find((l) => !l.startsWith('> ') && /\[Server\] feather/.test(l));
+  if (!hit) console.log(lines.slice(-14).join('\n'));
+  console.log('  server answered:', hit ? hit.replace(/^.*?]: /, '') : '(no reply)');
+  if (!hit) throw new Error('console command got no answer');
+  await call('service.stop', { id: svc.id });
+  await waitStatus(svc.id, 'stopped', 90000);
+  console.log('  stopped cleanly');
+  await call('service.delete', { id: svc.id });
+}
+
+async function fivemTest() {
+  step('fivem');
+  const version = await ensureRuntime('fivem');
+  await call('service.create', { type: 'fivem', name: 'bad', version, port: 30120, options: { licenseKey: 'x' } }).then(
+    () => { throw new Error('invalid license key must be refused'); },
+    (e) => console.log('  bad key refused:', e.message.slice(0, 50)),
+  );
+  const { port } = await call('port.suggest', { preferred: 30120 });
+  const svc = await call('service.create', { type: 'fivem', name: 'smoke-fivem', version, port, options: { licenseKey: 'cfxk_0000000000000000000_00000', hostname: 'Feather Test', maxClients: 8 } });
+  await call('service.start', { id: svc.id });
+  const end = Date.now() + 120000;
+  let state;
+  while (Date.now() < end) {
+    state = (await call('service.list')).find((x) => x.id === svc.id);
+    if (state.status === 'error' || state.status === 'running') break;
+    await sleep(1000);
+  }
+  const lines = await call('service.logs', { id: svc.id, lines: 80 });
+  console.log('  status:', state.status, '| last lines:', lines.slice(-4).map((l) => l.slice(0, 90)).join(' / '));
+  await call('service.stop', { id: svc.id });
+  await call('service.delete', { id: svc.id });
+}
+
 async function profilesTest() {
   step('profiles');
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -177,6 +224,8 @@ async function profilesTest() {
   for (const w of wanted) {
     if (w === 'mariadb') await mariadbTest();
     else if (w === 'profiles') await profilesTest();
+    else if (w === 'minecraft' || w === 'paper') await minecraftTest(w);
+    else if (w === 'fivem') await fivemTest();
     else await webTest(w);
   }
   console.log('\nOK');

@@ -78,6 +78,10 @@ final class Api {
         on("service.stop", p -> manager.stop(str(p, "id")));
         on("service.restart", p -> manager.restart(str(p, "id")));
         on("service.logs", p -> manager.logs(str(p, "id"), p.get("lines") instanceof Number n ? n.intValue() : 500));
+        on("service.command", p -> {
+            manager.sendCommand(str(p, "id"), str(p, "line"));
+            return Json.obj("ok", true);
+        });
         on("service.clearLogs", p -> {
             manager.clearLogs(str(p, "id"));
             return Json.obj("ok", true);
@@ -111,6 +115,7 @@ final class Api {
         });
 
         on("db.query", p -> Sql.run(runningDatabase(str(p, "id")), p.get("database") == null ? null : String.valueOf(p.get("database")), str(p, "sql")));
+        on("db.schema", p -> Sql.schema(runningDatabase(str(p, "id")), str(p, "database")));
         on("db.users", p -> Sql.users(runningDatabase(str(p, "id"))));
         on("db.userGrants", p -> Sql.grants(runningDatabase(str(p, "id")), str(p, "user"), str(p, "host")));
         on("db.userCreate", p -> {

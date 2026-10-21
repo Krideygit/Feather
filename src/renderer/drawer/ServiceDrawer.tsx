@@ -95,7 +95,7 @@ function ServiceDrawer({ id, initialTab, onClose }: { id: string; initialTab: Ta
           {tab === 'databases' && <Pane active><DatabasesTab service={service} /></Pane>}
           {tab === 'users' && <Pane active><UsersTab service={service} /></Pane>}
           {database && <Pane active={tab === 'sql'}><SqlTab service={service} /></Pane>}
-          <Pane active={tab === 'logs'} scroll={false}><LogsTab id={service.id} active={tab === 'logs'} /></Pane>
+          <Pane active={tab === 'logs'} scroll={false}><LogsTab id={service.id} active={tab === 'logs'} commandable={service.category === 'package'} running={service.status === 'running'} /></Pane>
           {tab === 'settings' && <Pane active><SettingsTab service={service} onDeleted={onClose} /></Pane>}
         </div>
       </div>

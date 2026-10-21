@@ -1,8 +1,9 @@
-import { CircleAlert, Play } from 'lucide-react';
+import { CircleAlert, Play, Workflow } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import type { Service, SqlOutput } from '../../shared/types';
 import { Notice } from '../components/Bits';
 import { toast } from '../components/Toast';
+import { openBlueprint } from '../blueprint/BlueprintEditor';
 import { call } from '../lib/api';
 import { useDatabases } from './useDatabases';
 
@@ -70,6 +71,10 @@ export function SqlTab({ service }: { service: Service }) {
             <option key={d.name} value={d.name}>{d.name}</option>
           ))}
         </select>
+        <button className="btn btn-outline" disabled={!running} onClick={() => openBlueprint(service, edit)} title="Abfragen aus Knoten zusammenbauen" data-action="open-blueprint">
+          <Workflow className="size-4" />
+          Blueprint
+        </button>
         <span className="flex-1" />
         <span className="text-xs text-neutral-500 hidden sm:inline">Strg + Enter</span>
         <button className="btn btn-primary" disabled={busy || !running} onClick={() => void run()} data-action="sqlRun">
@@ -93,7 +98,7 @@ export function SqlTab({ service }: { service: Service }) {
   );
 }
 
-function Results({ output }: { output: SqlOutput }) {
+export function Results({ output }: { output: SqlOutput }) {
   return (
     <div className="space-y-3">
       {output.results.map((r, i) =>

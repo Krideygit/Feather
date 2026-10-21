@@ -12,6 +12,9 @@ export const TYPES: Record<ServiceType, TypeInfo> = {
   mariadb: { label: 'MariaDB', category: 'database', defaultPort: 3306 },
   nginx: { label: 'Nginx', category: 'webserver', defaultPort: 8080 },
   apache: { label: 'Apache', category: 'webserver', defaultPort: 8081 },
+  minecraft: { label: 'Minecraft (Vanilla)', category: 'package', defaultPort: 25565 },
+  paper: { label: 'Minecraft (Paper)', category: 'package', defaultPort: 25565 },
+  fivem: { label: 'FiveM', category: 'package', defaultPort: 30120 },
 };
 
 export interface CategoryInfo {
@@ -39,6 +42,14 @@ export const CATEGORIES: Record<Category, CategoryInfo> = {
     description: 'Nginx und Apache, die einen Ordner deiner Wahl ausliefern.',
     emptyTitle: 'Noch kein Webserver',
     emptyText: 'Wähle einen Ordner, und Feather liefert ihn über Nginx oder Apache unter localhost aus.',
+  },
+  package: {
+    types: ['minecraft', 'paper', 'fivem'],
+    singular: 'Package',
+    title: 'Packages',
+    description: 'Fertige Server und Werkzeuge, nach Kategorien sortiert.',
+    emptyTitle: 'Noch kein Package',
+    emptyText: 'Wähle ein Package aus einer Kategorie und Feather richtet es ein.',
   },
 };
 

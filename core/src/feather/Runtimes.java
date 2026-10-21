@@ -24,7 +24,12 @@ public final class Runtimes {
     private static final Map<String, String> MARKER_EXE = Map.of(
             "mariadb", "bin/mariadbd.exe",
             "nginx", "nginx.exe",
-            "apache", "bin/httpd.exe");
+            "apache", "bin/httpd.exe",
+            "minecraft", "server.jar",
+            "paper", "server.jar",
+            "fivem", "FXServer.exe");
+
+    private static final String JAVA_MARKER = "java-version.txt";
 
     private static final Set<String> INSTALLING = ConcurrentHashMap.newKeySet();
 
@@ -74,6 +79,34 @@ public final class Runtimes {
         return out;
     }
 
+    public static int javaRequirement(String type, String version) {
+        Path base = base(type, version);
+        if (base == null) return 0;
+        try {
+            return Integer.parseInt(Files.readString(base.resolve(JAVA_MARKER)).trim());
+        } catch (IOException | NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    public static void fetchArchive(String url, Path dest, boolean stripTop) throws Exception {
+        Path file = Home.downloads().resolve("archive-" + Integer.toHexString(url.hashCode()) + ".download");
+        Files.createDirectories(file.getParent());
+        Path partial = dest.resolveSibling(dest.getFileName() + ".partial");
+        try {
+            Catalog.Version v = new Catalog.Version("archive", "", url, null, null, null, "zip");
+            download(null, null, v, file);
+            Home.deleteRecursively(partial);
+            Files.createDirectories(partial);
+            unzip(null, null, file, partial, stripTop);
+            Home.deleteRecursively(dest);
+            Files.move(partial, dest, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Home.deleteRecursively(partial);
+            Files.deleteIfExists(file);
+        }
+    }
+
     public static void remove(String type, String version) throws IOException {
         Home.deleteRecursively(dir(type, version));
     }
@@ -100,19 +133,25 @@ public final class Runtimes {
         String key = type + "@" + version;
         if (!INSTALLING.add(key)) throw new IllegalStateException(type + " " + version + " wird bereits installiert.");
 
-        Path zip = Home.downloads().resolve(type + "-" + version + ".zip");
+        Path file = Home.downloads().resolve(type + "-" + version + ".download");
         Path partial = Home.runtimes().resolve(type).resolve(version + ".partial");
         try {
-            Catalog.Version v = Catalog.find(type, version);
-            Files.createDirectories(zip.getParent());
-            download(type, version, v, zip);
-            if (v.sha256() != null) {
+            Catalog.Resolved resolved = Catalog.resolve(Catalog.find(type, version));
+            Catalog.Version v = resolved.version();
+            Files.createDirectories(file.getParent());
+            download(type, version, v, file);
+            if (v.checksum() != null) {
                 progress(type, version, "verify", 100, 0, 0);
-                verify(zip, v.sha256());
+                verify(file, v.checksum(), v.algo());
             }
             Home.deleteRecursively(partial);
             Files.createDirectories(partial);
-            unzip(type, version, zip, partial);
+            if (v.kind().equals("jar")) {
+                Files.copy(file, partial.resolve("server.jar"));
+                Files.writeString(partial.resolve(JAVA_MARKER), String.valueOf(resolved.java()));
+            } else {
+                unzip(type, version, file, partial, false);
+            }
             Path target = dir(type, version);
             Home.deleteRecursively(target);
             Files.move(partial, target, StandardCopyOption.ATOMIC_MOVE);
@@ -126,7 +165,7 @@ public final class Runtimes {
             progress(type, version, "error", 0, 0, 0);
             throw e;
         } finally {
-            Files.deleteIfExists(zip);
+            Files.deleteIfExists(file);
             INSTALLING.remove(key);
         }
     }
@@ -139,7 +178,7 @@ public final class Runtimes {
         HttpResponse<InputStream> res = Catalog.HTTP.send(rb.build(), HttpResponse.BodyHandlers.ofInputStream());
         if (res.statusCode() != 200) throw new IOException("Download fehlgeschlagen (HTTP " + res.statusCode() + ")");
         String contentType = res.headers().firstValue("Content-Type").orElse("");
-        if (contentType.startsWith("text/")) throw new IOException("Die Quelle hat keine ZIP-Datei geliefert.");
+        if (contentType.startsWith("text/")) throw new IOException("Die Quelle hat keine Datei geliefert.");
         long total = res.headers().firstValueAsLong("Content-Length").orElse(-1);
         long read = 0;
         long lastEmit = 0;
@@ -150,17 +189,17 @@ public final class Runtimes {
                 out.write(buf, 0, n);
                 read += n;
                 long now = System.currentTimeMillis();
-                if (now - lastEmit > 150) {
+                if (type != null && now - lastEmit > 150) {
                     lastEmit = now;
                     progress(type, version, "download", total > 0 ? (int) (read * 100 / total) : -1, read, total);
                 }
             }
         }
-        progress(type, version, "download", 100, read, total);
+        if (type != null) progress(type, version, "download", 100, read, total);
     }
 
-    private static void verify(Path file, String expectedHex) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
+    private static void verify(Path file, String expectedHex, String algorithm) throws Exception {
+        MessageDigest md = MessageDigest.getInstance(algorithm);
         try (InputStream in = Files.newInputStream(file)) {
             byte[] buf = new byte[256 * 1024];
             int n;
@@ -173,7 +212,7 @@ public final class Runtimes {
         }
     }
 
-    private static void unzip(String type, String version, Path zip, Path dest) throws IOException {
+    private static void unzip(String type, String version, Path zip, Path dest, boolean stripTop) throws IOException {
         Path root = dest.toAbsolutePath().normalize();
         long totalBytes = Files.size(zip);
         long lastEmit = 0;
@@ -182,7 +221,14 @@ public final class Runtimes {
             ZipEntry e;
             byte[] buf = new byte[64 * 1024];
             while ((e = zin.getNextEntry()) != null) {
-                Path out = root.resolve(e.getName()).normalize();
+                String name = e.getName();
+                if (stripTop) {
+                    int slash = name.indexOf('/');
+                    if (slash < 0) continue;
+                    name = name.substring(slash + 1);
+                    if (name.isEmpty()) continue;
+                }
+                Path out = root.resolve(name).normalize();
                 if (!out.startsWith(root)) throw new IOException("Ungültiger Pfad im Archiv: " + e.getName());
                 if (e.isDirectory()) {
                     Files.createDirectories(out);
@@ -195,7 +241,7 @@ public final class Runtimes {
                 }
                 entries++;
                 long now = System.currentTimeMillis();
-                if (now - lastEmit > 150) {
+                if (type != null && now - lastEmit > 150) {
                     lastEmit = now;
                     progress(type, version, "extract", -1, entries, totalBytes);
                 }

@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "@xyflow/react/dist/style.css";
 @source "./";
 
 @theme {
@@ -77,3 +78,28 @@
 @layer base {
   .lucide { flex-shrink: 0; }
 }
+
+@layer components {
+  .bp-field {
+    @apply w-full h-7 rounded-md bg-neutral-950/60 border border-neutral-700 px-2 text-xs text-neutral-100
+      placeholder:text-neutral-600 outline-none focus:border-primary disabled:opacity-50;
+  }
+}
+
+.react-flow {
+  --xy-background-color: #131313;
+  --xy-edge-stroke-default: #525252;
+  --xy-controls-button-background-color: #171717;
+  --xy-controls-button-background-color-hover: #262626;
+  --xy-controls-button-color: #d4d4d4;
+  --xy-controls-button-border-color: #262626;
+  --xy-minimap-background-color: #171717;
+}
+.react-flow__handle.pin { width: 12px; height: 12px; border: 2px solid #171717; }
+.react-flow__handle.pin-rows { background: #0ea5e9; }
+.react-flow__handle.pin-cond { background: #f59e0b; }
+.react-flow__handle.pin.connectingto,
+.react-flow__handle.pin.valid { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.18); }
+.react-flow__attribution { background: transparent; color: #525252; }
+.react-flow__attribution a { color: #525252; }
+.react-flow__node { cursor: default; }

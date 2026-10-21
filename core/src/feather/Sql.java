@@ -103,6 +103,30 @@ final class Sql {
         return Json.obj("type", "rows", "sql", sql, "columns", names, "rows", rows, "truncated", truncated, "ms", ms);
     }
 
+    static List<Object> schema(Service s, String database) throws Exception {
+        String query = "SELECT t.table_name, t.table_type, c.column_name, c.column_type, c.column_key "
+                + "FROM information_schema.tables t LEFT JOIN information_schema.columns c "
+                + "ON c.table_schema = t.table_schema AND c.table_name = t.table_name "
+                + "WHERE t.table_schema = ? ORDER BY t.table_name, c.ordinal_position";
+        Map<String, Map<String, Object>> tables = new java.util.LinkedHashMap<>();
+        try (Connection c = Jdbc.connect(s, null); java.sql.PreparedStatement ps = c.prepareStatement(query)) {
+            ps.setString(1, database);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> table = tables.computeIfAbsent(rs.getString(1), name -> Json.obj(
+                            "name", name, "view", false, "columns", new ArrayList<Object>()));
+                    table.put("view", "VIEW".equals(rs.getString(2)) || "SYSTEM VIEW".equals(rs.getString(2)));
+                    if (rs.getString(3) != null) {
+                        @SuppressWarnings("unchecked")
+                        List<Object> columns = (List<Object>) table.get("columns");
+                        columns.add(Json.obj("name", rs.getString(3), "type", rs.getString(4), "key", rs.getString(5)));
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(tables.values());
+    }
+
     static List<Object> users(Service s) throws Exception {
         List<Object> out = new ArrayList<>();
         try (Connection c = Jdbc.connect(s, null); Statement st = c.createStatement();
