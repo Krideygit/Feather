@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
+    />
+    <title>Feather</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      html, body { height: 100%; overflow: hidden; }
+      body {
+        background: #171717;
+        color: #e5e5e5;
+        font-family: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #262626;
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      img { width: 84px; height: 84px; border-radius: 20px; animation: float 2.4s ease-in-out infinite; }
+      h1 { margin-top: 20px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: #fafafa; }
+      .track { margin-top: 30px; width: 260px; height: 4px; border-radius: 999px; background: #262626; overflow: hidden; }
+      .fill { height: 100%; width: 0%; border-radius: 999px; background: #0ea5e9; transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+      .label { margin-top: 12px; height: 16px; font-size: 12px; color: #737373; }
+      .version { position: absolute; bottom: 12px; font-size: 11px; color: #525252; }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    </style>
+  </head>
+  <body>
+    <img src="../../build/icon.png" alt="" />
+    <h1>Feather</h1>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="label" id="label">Starte …</div>
+    <div class="version" id="version"></div>
+  </body>
+</html>
