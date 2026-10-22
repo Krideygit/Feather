@@ -1,4 +1,4 @@
-import { ChevronsUpDown, CircleAlert, Database, Globe, LayoutDashboard, Package, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CircleAlert, Database, Globe, LayoutDashboard, Package, Terminal, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './components/Bits';
 import { LayerHost } from './components/Layers';
@@ -6,10 +6,12 @@ import { ToastHost } from './components/Toast';
 import { ProfileMenu } from './dialogs/Profiles';
 import { call, refreshProfiles, refreshRuntimes, refreshServices } from './lib/api';
 import { listenToCore } from './lib/events';
+import { listenToRemote, loadHosts, useRemote } from './lib/remote';
 import { type Route, setState, useActiveProfile, useAppState } from './lib/store';
 import { CategoryPage } from './pages/CategoryPage';
 import { DashboardPage } from './pages/Dashboard';
 import { PackagesPage } from './pages/Packages';
+import { ServerPage } from './pages/Server';
 import type { AppInfo } from '../shared/types';
 
 const NAV: { route: Route; label: string; icon: LucideIcon; soon?: boolean }[] = [
@@ -17,6 +19,7 @@ const NAV: { route: Route; label: string; icon: LucideIcon; soon?: boolean }[] =
   { route: 'database', label: 'Datenbanken', icon: Database },
   { route: 'webserver', label: 'Webserver', icon: Globe },
   { route: 'packages', label: 'Packages', icon: Package },
+  { route: 'server', label: 'Terminal', icon: Terminal },
 ];
 
 const ROUTES = NAV.map((n) => n.route);
@@ -33,6 +36,7 @@ function storedRoute(): Route {
 function Sidebar() {
   const route = useAppState((s) => s.route);
   const services = useAppState((s) => s.services);
+  const sessionCount = useRemote((s) => s.sessions.length);
   const profile = useActiveProfile();
   const [menuOpen, setMenuOpen] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
@@ -62,6 +66,7 @@ function Sidebar() {
   };
 
   const count = (r: Route): number => {
+    if (r === 'server') return sessionCount;
     const category = r === 'packages' ? 'package' : r;
     return category === 'database' || category === 'webserver' || category === 'package' ? services.filter((s) => s.category === category).length : 0;
   };
@@ -105,12 +110,22 @@ function Sidebar() {
 
 function Page() {
   const route = useAppState((s) => s.route);
+  const live = useRemote((s) => s.sessions.length + s.pending.length > 0);
   const content =
-    route === 'database' ? <CategoryPage category="database" /> : route === 'webserver' ? <CategoryPage category="webserver" /> : route === 'packages' ? <PackagesPage /> : <DashboardPage />;
+    route === 'database' ? <CategoryPage category="database" /> : route === 'webserver' ? <CategoryPage category="webserver" /> : route === 'packages' ? <PackagesPage /> : route === 'server' ? null : <DashboardPage />;
   return (
-    <div key={route} className="flex flex-1 min-h-0 flex-col animate-rise">
-      {content}
-    </div>
+    <>
+      {content && (
+        <div key={route} className="flex flex-1 min-h-0 flex-col animate-rise">
+          {content}
+        </div>
+      )}
+      {(route === 'server' || live) && (
+        <div className={route === 'server' ? 'flex flex-1 min-h-0 flex-col animate-rise' : 'hidden'}>
+          <ServerPage />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -123,7 +138,13 @@ export function App() {
     const bridge = window.feather;
     setState({ route: storedRoute() });
     bridge.bootProgress(66, 'Profil wird geladen …');
-    const stopListening = listenToCore();
+    const stopCore = listenToCore();
+    const stopRemote = listenToRemote();
+    void loadHosts().catch(() => undefined);
+    const stopListening = (): void => {
+      stopCore();
+      stopRemote();
+    };
 
     void (async () => {
       try {

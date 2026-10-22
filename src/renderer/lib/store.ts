@@ -9,7 +9,7 @@ import type {
   Settings,
 } from '../../shared/types';
 
-export type Route = 'dashboard' | 'database' | 'webserver' | 'packages';
+export type Route = 'dashboard' | 'database' | 'webserver' | 'packages' | 'server';
 
 export interface AppState {
   route: Route;

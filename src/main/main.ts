@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { FileFilter, Service, Settings } from '../shared/types';
 import { Core } from './core';
+import { registerRemote } from './remote/ipc';
 import * as settings from './settings';
 import { createSplash, type Splash } from './splash';
 import { createTray, type FeatherTray } from './tray';
@@ -14,6 +15,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
 const isWeb = (url: string): boolean => /^https?:\/\//.test(url);
 
 const core = new Core();
+let remote: { shutdown: () => void } | null = null;
 const statuses = new Map<string, string>();
 let win: BrowserWindow | null = null;
 let splash: Splash | null = null;
@@ -172,6 +174,18 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('clipboard:write', (_event, text: unknown) => clipboard.writeText(String(text)));
+  ipcMain.handle('clipboard:read', () => clipboard.readText());
+
+  remote = registerRemote({
+    send,
+    pickLocal: async (kind) => {
+      const res = await openDialog({
+        title: kind === 'folder' ? 'Ordner zum Hochladen auswählen' : 'Dateien zum Hochladen auswählen',
+        properties: kind === 'folder' ? ['openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'],
+      });
+      return res.canceled ? [] : res.filePaths;
+    },
+  });
 }
 
 function trackStatus(name: string, data: unknown): void {
@@ -263,6 +277,7 @@ app.on('before-quit', (event) => {
   if (quitting) return;
   event.preventDefault();
   quitting = true;
+  remote?.shutdown();
   void core.shutdown().finally(() => {
     tray?.destroy();
     app.quit();

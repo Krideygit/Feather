@@ -1,5 +1,6 @@
 @import "tailwindcss" source(none);
 @import "@xyflow/react/dist/style.css";
+@import "@xterm/xterm/css/xterm.css";
 @source "./";
 
 @theme {

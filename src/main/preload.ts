@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { FeatherBridge } from '../shared/types';
 
 interface CoreReply {
@@ -39,7 +39,19 @@ const bridge: FeatherBridge = {
   openPath: (target) => ipcRenderer.invoke('shell:openPath', target),
   showItem: (target) => ipcRenderer.invoke('shell:showItem', target),
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
+  readClipboard: () => ipcRenderer.invoke('clipboard:read'),
   platform: process.platform,
+
+  remote: (method, params) => ipcRenderer.invoke('remote:call', method, params ?? {}),
+  remoteSend: (method, params) => ipcRenderer.send('remote:send', method, params),
+  onRemoteEvent: (callback) => {
+    const handler = (_event: unknown, payload: { name: string; data: unknown }): void => callback(payload.name, payload.data);
+    ipcRenderer.on('remote:event', handler);
+    return () => {
+      ipcRenderer.removeListener('remote:event', handler);
+    };
+  },
+  pathForFile: (file) => webUtils.getPathForFile(file),
 };
 
 contextBridge.exposeInMainWorld('feather', bridge);

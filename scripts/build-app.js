@@ -27,7 +27,7 @@ const nodeBuild = {
   platform: 'node',
   format: 'cjs',
   target: 'node22',
-  external: ['electron'],
+  external: ['electron', '*.node', 'cpu-features'],
 };
 
 const rendererBuild = {

@@ -22,7 +22,7 @@ import { useDatabases } from '../drawer/useDatabases';
 import { attempt, call } from '../lib/api';
 import { useService } from '../lib/store';
 import { compile } from './compile';
-import { ContextMenu, type MenuEntry } from './ContextMenu';
+import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { BlueprintContext, COLUMN_LIST } from './context';
 import { GROUP_ORDER, NODE_COLORS, NODE_DEFS, PIN_COLORS, newNode, pinOf, type BpEdge, type BpNode, type Meta, type NodeKind } from './graph';
 import { nodeTypes } from './nodes';

@@ -194,5 +194,11 @@ export interface FeatherBridge {
   openPath(target: string): Promise<string>;
   showItem(target: string): Promise<void>;
   copy(text: string): Promise<void>;
+  readClipboard(): Promise<string>;
   platform: string;
+
+  remote(method: string, params?: object): Promise<{ ok: boolean; result?: unknown; error?: string; code?: string; data?: Record<string, unknown> }>;
+  remoteSend(method: string, params: object): void;
+  onRemoteEvent(callback: (name: string, data: unknown) => void): () => void;
+  pathForFile(file: File): string;
 }
