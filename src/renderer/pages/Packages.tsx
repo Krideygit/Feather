@@ -23,7 +23,7 @@ function PackageCard({ pkg }: { pkg: PackageDef }) {
       {available && (
         <div className="mt-4 pt-3 border-t border-neutral-800">
           <button className="btn btn-primary btn-sm" onClick={() => openCreateDialog('package', pkg)} data-package={pkg.id}>
-            Erstellen
+            Installieren
           </button>
         </div>
       )}

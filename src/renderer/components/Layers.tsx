@@ -87,7 +87,7 @@ export function Modal({ title, subtitle, size = 'max-w-lg', onClose, footer, dis
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 animate-fade-in"
       onMouseDown={(e) => {
         if (dismissible && e.target === e.currentTarget) onClose();
       }}
@@ -117,7 +117,7 @@ interface DrawerProps {
 export function Drawer({ header, size = 'max-w-[560px]', onClose, children }: DrawerProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/50"
+      className="fixed inset-x-0 bottom-0 top-10 z-50 flex justify-end bg-black/50 animate-fade-in"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

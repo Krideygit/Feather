@@ -1,32 +1,22 @@
-import { Handle, Position, useReactFlow, type Node, type NodeProps, type NodeTypes } from '@xyflow/react';
-import { Plus, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
+import { Lock, MessageSquare, Plus, X } from 'lucide-react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { COLUMN_LIST, useBlueprint } from './context';
 import {
   NODE_DEFS,
+  NOTE_COLOR,
   type Aggregate,
   type AggregateItem,
   type Assignment,
-  type ColumnsData,
-  type CompareData,
+  type BpNode,
   type CompareOp,
-  type DeleteData,
-  type DistinctData,
-  type FilterData,
-  type GroupData,
-  type InsertData,
-  type JoinData,
   type JoinKind,
-  type LimitData,
-  type LogicData,
+  type Meta,
   type NodeKind,
-  type NotData,
-  type OrderData,
-  type ResultData,
-  type TableData,
-  type UpdateData,
   type ValueType,
 } from './graph';
+
+type P<K extends NodeKind> = NodeProps<Extract<BpNode, { type: K }>>;
 
 const OPS: CompareOp[] = ['=', '<>', '<', '<=', '>', '>=', 'LIKE', 'NOT LIKE', 'IN', 'IS NULL', 'IS NOT NULL'];
 const AGGREGATES: Aggregate[] = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
@@ -69,23 +59,56 @@ function PinRow({ kind, index }: { kind: NodeKind; index: number }) {
   );
 }
 
-function Frame({ id, kind, selected, children }: { id: string; kind: NodeKind; selected?: boolean; children?: ReactNode }) {
+function NoteBubble({ id, value }: { id: string; value: string }) {
+  const update = useUpdate(id);
+  return (
+    <div className="absolute left-0 right-0 top-full mt-2 animate-pop rounded-lg border border-amber-400/30 bg-amber-300/10 px-2.5 py-2 shadow-lg backdrop-blur-sm">
+      <div className="flex items-center gap-1.5 mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300/80">
+        <MessageSquare className="size-3" />
+        Kommentar
+      </div>
+      <textarea
+        className="nodrag nowheel block w-full resize-none bg-transparent text-xs leading-[18px] text-amber-50 placeholder:text-amber-200/40 outline-none"
+        style={{ fieldSizing: 'content', minHeight: 18 } as CSSProperties}
+        rows={1}
+        value={value}
+        autoFocus={value === ''}
+        placeholder="Kommentar schreiben …"
+        spellCheck={false}
+        data-note={id}
+        onChange={(e) => update({ note: e.target.value })}
+        onBlur={() => value.trim() === '' && update({ note: undefined })}
+      />
+    </div>
+  );
+}
+
+function Frame({ id, kind, selected, meta, children }: { id: string; kind: NodeKind; selected?: boolean; meta: Meta; children?: ReactNode }) {
   const def = NODE_DEFS[kind];
   const problem = useBlueprint().problems[id];
   const rows = Math.max(def.inputs.length, def.outputs.length);
-  const border = problem ? 'border-red-500/70' : selected ? 'border-primary' : 'border-neutral-700';
+  const ring = problem ? 'border-red-500/70' : selected ? 'border-primary shadow-[0_0_0_4px_rgb(14_165_233/0.16),0_12px_32px_rgb(0_0_0/0.55)]' : 'border-neutral-700 hover:border-neutral-500';
   return (
-    <div style={{ width: def.width }} className={`rounded-xl border bg-neutral-900/95 shadow-xl ${border}`}>
-      <div className={`${def.header} rounded-t-[11px] px-3 h-8 flex items-center text-[13px] font-semibold text-white`}>{def.title}</div>
-      {rows > 0 && (
-        <div className="py-1">
-          {Array.from({ length: rows }, (_, i) => (
-            <PinRow key={i} kind={kind} index={i} />
-          ))}
+    <div style={{ width: def.width }} className="relative animate-node-in">
+      <div className={`rounded-xl border bg-neutral-900/95 shadow-xl transition-[border-color,box-shadow] duration-200 ${ring}`}>
+        <div
+          className={`${meta.color ? '' : def.header} rounded-t-[11px] px-3 h-8 flex items-center gap-1.5 text-[13px] font-semibold text-white transition-colors duration-300`}
+          style={meta.color ? { background: meta.color } : undefined}
+        >
+          <span className="flex-1 truncate">{def.title}</span>
+          {meta.locked && <Lock className="size-3 opacity-80" aria-label="Fixiert" />}
         </div>
-      )}
-      {children && <div className="px-3 pb-3 pt-1 space-y-2">{children}</div>}
-      {problem && <p className="px-3 pb-2 text-[11px] leading-4 text-red-300">{problem}</p>}
+        {rows > 0 && (
+          <div className="py-1">
+            {Array.from({ length: rows }, (_, i) => (
+              <PinRow key={i} kind={kind} index={i} />
+            ))}
+          </div>
+        )}
+        {children && <div className="px-3 pb-3 pt-1 space-y-2">{children}</div>}
+        {problem && <p className="px-3 pb-2 text-[11px] leading-4 text-red-300 animate-fade-in">{problem}</p>}
+      </div>
+      {meta.note !== undefined && <NoteBubble id={id} value={meta.note} />}
     </div>
   );
 }
@@ -215,17 +238,17 @@ function AllRows({ checked, onChange }: { checked: boolean; onChange: (v: boolea
   );
 }
 
-function TableNode({ id, data, selected }: NodeProps<Node<TableData, 'table'>>) {
+function TableNode({ id, data, selected }: P<'table'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="table" selected={selected}>
+    <Frame id={id} kind="table" selected={selected} meta={data}>
       <TableTarget database={data.database} table={data.table} onChange={update} />
       <input className="bp-field nodrag" value={data.alias} placeholder="Alias (optional)" spellCheck={false} onChange={(e) => update({ alias: e.target.value })} />
     </Frame>
   );
 }
 
-function JoinNode({ id, data, selected }: NodeProps<Node<JoinData, 'join'>>) {
+function JoinNode({ id, data, selected }: P<'join'>) {
   const update = useUpdate(id);
   const kinds: { id: JoinKind; label: string }[] = [
     { id: 'INNER', label: 'INNER JOIN' },
@@ -233,7 +256,7 @@ function JoinNode({ id, data, selected }: NodeProps<Node<JoinData, 'join'>>) {
     { id: 'RIGHT', label: 'RIGHT JOIN' },
   ];
   return (
-    <Frame id={id} kind="join" selected={selected}>
+    <Frame id={id} kind="join" selected={selected} meta={data}>
       <Select value={data.kind} options={kinds} onChange={(kind) => update({ kind })} />
       <ColumnInput value={data.left} placeholder="Spalte links" onChange={(left) => update({ left })} />
       <ColumnInput value={data.right} placeholder="Spalte rechts" onChange={(right) => update({ right })} />
@@ -241,26 +264,26 @@ function JoinNode({ id, data, selected }: NodeProps<Node<JoinData, 'join'>>) {
   );
 }
 
-function ColumnsNode({ id, data, selected }: NodeProps<Node<ColumnsData, 'columns'>>) {
+function ColumnsNode({ id, data, selected }: P<'columns'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="columns" selected={selected}>
+    <Frame id={id} kind="columns" selected={selected} meta={data}>
       <ChipList values={data.columns} placeholder="Spalte hinzufügen (Enter)" onChange={(columns) => update({ columns })} />
       {data.columns.length === 0 && <p className="text-[11px] text-neutral-500">Ohne Auswahl bleiben alle Spalten.</p>}
     </Frame>
   );
 }
 
-function FilterNode({ id, selected }: NodeProps<Node<FilterData, 'filter'>>) {
-  return <Frame id={id} kind="filter" selected={selected} />;
+function FilterNode({ id, data, selected }: P<'filter'>) {
+  return <Frame id={id} kind="filter" selected={selected} meta={data} />;
 }
 
-function CompareNode({ id, data, selected }: NodeProps<Node<CompareData, 'compare'>>) {
+function CompareNode({ id, data, selected }: P<'compare'>) {
   const update = useUpdate(id);
   const unary = data.op === 'IS NULL' || data.op === 'IS NOT NULL';
   const forcedText = data.op === 'LIKE' || data.op === 'NOT LIKE';
   return (
-    <Frame id={id} kind="compare" selected={selected}>
+    <Frame id={id} kind="compare" selected={selected} meta={data}>
       <ColumnInput value={data.column} onChange={(column) => update({ column })} />
       <Select value={data.op} options={OPS.map((op) => ({ id: op, label: op }))} onChange={(op) => update({ op })} />
       {!unary &&
@@ -273,10 +296,10 @@ function CompareNode({ id, data, selected }: NodeProps<Node<CompareData, 'compar
   );
 }
 
-function LogicNode({ id, data, selected }: NodeProps<Node<LogicData, 'logic'>>) {
+function LogicNode({ id, data, selected }: P<'logic'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="logic" selected={selected}>
+    <Frame id={id} kind="logic" selected={selected} meta={data}>
       <Select
         value={data.op}
         options={[
@@ -289,15 +312,15 @@ function LogicNode({ id, data, selected }: NodeProps<Node<LogicData, 'logic'>>) 
   );
 }
 
-function NotNode({ id, selected }: NodeProps<Node<NotData, 'not'>>) {
-  return <Frame id={id} kind="not" selected={selected} />;
+function NotNode({ id, data, selected }: P<'not'>) {
+  return <Frame id={id} kind="not" selected={selected} meta={data} />;
 }
 
-function GroupNode({ id, data, selected }: NodeProps<Node<GroupData, 'aggregate'>>) {
+function GroupNode({ id, data, selected }: P<'aggregate'>) {
   const update = useUpdate(id);
   const setAggregate = (i: number, p: Partial<AggregateItem>): void => update({ aggregates: data.aggregates.map((a, k) => (k === i ? { ...a, ...p } : a)) });
   return (
-    <Frame id={id} kind="aggregate" selected={selected}>
+    <Frame id={id} kind="aggregate" selected={selected} meta={data}>
       <p className="text-[11px] uppercase tracking-wide text-neutral-500">Gruppieren nach</p>
       <ChipList values={data.by} placeholder="Spalte hinzufügen (Enter)" onChange={(by) => update({ by })} />
       <p className="text-[11px] uppercase tracking-wide text-neutral-500 pt-1">Aggregate</p>
@@ -323,10 +346,10 @@ function GroupNode({ id, data, selected }: NodeProps<Node<GroupData, 'aggregate'
   );
 }
 
-function OrderNode({ id, data, selected }: NodeProps<Node<OrderData, 'order'>>) {
+function OrderNode({ id, data, selected }: P<'order'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="order" selected={selected}>
+    <Frame id={id} kind="order" selected={selected} meta={data}>
       <ColumnInput value={data.column} onChange={(column) => update({ column })} />
       <Select
         value={data.dir}
@@ -340,10 +363,10 @@ function OrderNode({ id, data, selected }: NodeProps<Node<OrderData, 'order'>>) 
   );
 }
 
-function LimitNode({ id, data, selected }: NodeProps<Node<LimitData, 'limit'>>) {
+function LimitNode({ id, data, selected }: P<'limit'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="limit" selected={selected}>
+    <Frame id={id} kind="limit" selected={selected} meta={data}>
       <div className="grid grid-cols-2 gap-1.5">
         <label className="text-[11px] text-neutral-500">
           Anzahl
@@ -358,28 +381,54 @@ function LimitNode({ id, data, selected }: NodeProps<Node<LimitData, 'limit'>>) 
   );
 }
 
-function DistinctNode({ id, selected }: NodeProps<Node<DistinctData, 'distinct'>>) {
-  return <Frame id={id} kind="distinct" selected={selected} />;
+function DistinctNode({ id, data, selected }: P<'distinct'>) {
+  return <Frame id={id} kind="distinct" selected={selected} meta={data} />;
 }
 
-function ResultNode({ id, selected }: NodeProps<Node<ResultData, 'result'>>) {
-  return <Frame id={id} kind="result" selected={selected} />;
+function NoteNode({ id, data, selected }: P<'note'>) {
+  const update = useUpdate(id);
+  const tone = data.color ?? NOTE_COLOR;
+  return (
+    <div
+      style={{ width: NODE_DEFS.note.width, borderColor: selected ? undefined : `color-mix(in srgb, ${tone} 45%, transparent)`, background: `color-mix(in srgb, ${tone} 14%, #171717)` }}
+      className={`animate-node-in rounded-xl border shadow-xl transition-[border-color,box-shadow] duration-200 ${selected ? 'border-primary shadow-[0_0_0_4px_rgb(14_165_233/0.16)]' : ''}`}
+    >
+      <div className="flex items-center gap-1.5 px-3 h-7 text-[11px] font-semibold uppercase tracking-wide" style={{ color: tone }}>
+        <MessageSquare className="size-3" />
+        <span className="flex-1">Kommentar</span>
+        {data.locked && <Lock className="size-3" aria-label="Fixiert" />}
+      </div>
+      <textarea
+        className="nodrag nowheel block w-full resize-none bg-transparent px-3 pb-3 text-[13px] leading-5 text-neutral-100 placeholder:text-neutral-500 outline-none"
+        style={{ fieldSizing: 'content', minHeight: 60 } as CSSProperties}
+        value={data.text}
+        placeholder="Notiz schreiben …"
+        spellCheck={false}
+        data-note={id}
+        onChange={(e) => update({ text: e.target.value })}
+      />
+    </div>
+  );
 }
 
-function InsertNode({ id, data, selected }: NodeProps<Node<InsertData, 'insert'>>) {
+function ResultNode({ id, data, selected }: P<'result'>) {
+  return <Frame id={id} kind="result" selected={selected} meta={data} />;
+}
+
+function InsertNode({ id, data, selected }: P<'insert'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="insert" selected={selected}>
+    <Frame id={id} kind="insert" selected={selected} meta={data}>
       <TableTarget database={data.database} table={data.table} onChange={update} />
       <AssignmentList label="Werte" items={data.values} onChange={(values) => update({ values })} />
     </Frame>
   );
 }
 
-function UpdateNode({ id, data, selected }: NodeProps<Node<UpdateData, 'update'>>) {
+function UpdateNode({ id, data, selected }: P<'update'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="update" selected={selected}>
+    <Frame id={id} kind="update" selected={selected} meta={data}>
       <TableTarget database={data.database} table={data.table} onChange={update} />
       <AssignmentList label="Setze" items={data.sets} onChange={(sets) => update({ sets })} />
       <AllRows checked={data.all} onChange={(all) => update({ all })} />
@@ -387,10 +436,10 @@ function UpdateNode({ id, data, selected }: NodeProps<Node<UpdateData, 'update'>
   );
 }
 
-function DeleteNode({ id, data, selected }: NodeProps<Node<DeleteData, 'delete'>>) {
+function DeleteNode({ id, data, selected }: P<'delete'>) {
   const update = useUpdate(id);
   return (
-    <Frame id={id} kind="delete" selected={selected}>
+    <Frame id={id} kind="delete" selected={selected} meta={data}>
       <TableTarget database={data.database} table={data.table} onChange={update} />
       <AllRows checked={data.all} onChange={(all) => update({ all })} />
     </Frame>
@@ -410,6 +459,7 @@ export const nodeTypes: NodeTypes = {
   limit: LimitNode,
   distinct: DistinctNode,
   result: ResultNode,
+  note: NoteNode,
   insert: InsertNode,
   update: UpdateNode,
   delete: DeleteNode,

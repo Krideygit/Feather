@@ -105,16 +105,13 @@ function Sidebar() {
 
 function Page() {
   const route = useAppState((s) => s.route);
-  switch (route) {
-    case 'database':
-      return <CategoryPage category="database" />;
-    case 'webserver':
-      return <CategoryPage category="webserver" />;
-    case 'packages':
-      return <PackagesPage />;
-    default:
-      return <DashboardPage />;
-  }
+  const content =
+    route === 'database' ? <CategoryPage category="database" /> : route === 'webserver' ? <CategoryPage category="webserver" /> : route === 'packages' ? <PackagesPage /> : <DashboardPage />;
+  return (
+    <div key={route} className="flex flex-1 min-h-0 flex-col animate-rise">
+      {content}
+    </div>
+  );
 }
 
 export function App() {

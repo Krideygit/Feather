@@ -19,7 +19,7 @@ export function ServiceCard({ service: s }: { service: Service }) {
   const web = s.category === 'webserver';
 
   return (
-    <article className="card card-hover p-4 cursor-pointer flex flex-col" onClick={() => openServiceDrawer(s.id)} data-action="svc:open" data-id={s.id}>
+    <article className="card card-hover animate-pop p-4 cursor-pointer flex flex-col" onClick={() => openServiceDrawer(s.id)} data-action="svc:open" data-id={s.id}>
       <div className="flex items-start gap-3">
         <div className="size-10 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
           <TypeIcon type={s.type} className="size-5" />

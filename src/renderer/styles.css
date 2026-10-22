@@ -10,6 +10,12 @@
   --animate-pop: pop 0.16s ease-out;
   --animate-slide-in: slide-in 0.2s ease-out;
   --animate-toast: toast 0.2s ease-out;
+  --animate-fade-in: fade-in 0.18s ease-out both;
+  --animate-fade-out: fade-out 0.16s ease-in both;
+  --animate-pop-out: pop-out 0.16s ease-in both;
+  --animate-node-in: node-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  --animate-menu-in: menu-in 0.14s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  --animate-rise: rise 0.26s ease-out both;
 
   @keyframes pop {
     from { opacity: 0; transform: translateY(6px) scale(0.98); }
@@ -18,6 +24,30 @@
   @keyframes slide-in {
     from { transform: translateX(24px); opacity: 0; }
     to { transform: none; opacity: 1; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes pop-out {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(6px) scale(0.98); }
+  }
+  @keyframes node-in {
+    from { opacity: 0; transform: scale(0.9) translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes menu-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
   }
   @keyframes toast {
     from { opacity: 0; transform: translateY(8px); }
@@ -40,7 +70,8 @@
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 h-9 text-sm font-medium
-      transition-colors select-none whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none;
+      transition-[color,background-color,border-color,transform,opacity] duration-150 select-none whitespace-nowrap
+      active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-icon { @apply w-9 px-0; }
   .btn-sm { @apply h-8 px-2.5 text-[13px]; }
@@ -61,7 +92,7 @@
   .hint { @apply text-xs text-neutral-500 mt-1.5; }
 
   .card { @apply rounded-xl border border-neutral-800 bg-neutral-800/30; }
-  .card-hover { @apply transition-colors hover:border-neutral-700 hover:bg-neutral-800/50; }
+  .card-hover { @apply transition-[border-color,background-color,transform,box-shadow] duration-200 hover:border-neutral-700 hover:bg-neutral-800/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25; }
 
   .tab { @apply px-3 h-9 text-sm font-medium text-neutral-400 border-b-2 border-transparent hover:text-neutral-100 transition-colors; }
   .tab-active { @apply text-primary border-primary hover:text-primary; }
@@ -95,7 +126,22 @@
   --xy-controls-button-border-color: #262626;
   --xy-minimap-background-color: #171717;
 }
-.react-flow__handle.pin { width: 12px; height: 12px; border: 2px solid #171717; }
+.react-flow__handle.pin { width: 12px; height: 12px; border: 2px solid #171717; transition: width 0.15s ease, height 0.15s ease, box-shadow 0.15s ease; }
+.react-flow__handle.pin:hover { width: 15px; height: 15px; box-shadow: 0 0 0 4px rgb(255 255 255 / 0.14); }
+.react-flow__edge-path { animation: edge-in 0.45s ease-out both; transition: stroke-width 0.15s ease; }
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__edge.selected .react-flow__edge-path { stroke-width: 3.5px !important; }
+.react-flow__edge.animated .react-flow__edge-path { animation: dashdraw 0.5s linear infinite; }
+.react-flow__connection-path { stroke-width: 2.5px; stroke-dasharray: 6 4; animation: dashdraw 0.5s linear infinite; }
+.react-flow__controls-button { transition: background-color 0.15s ease, transform 0.15s ease; }
+.react-flow__controls-button:active { transform: scale(0.92); }
+@keyframes edge-in {
+  from { opacity: 0; stroke-width: 7px; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
 .react-flow__handle.pin-rows { background: #0ea5e9; }
 .react-flow__handle.pin-cond { background: #f59e0b; }
 .react-flow__handle.pin.connectingto,

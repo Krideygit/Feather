@@ -11,8 +11,8 @@ import {
   type Connection,
   type IsValidConnection,
 } from '@xyflow/react';
-import { Check, ClipboardCopy, FileCode2, Play, Trash2, Wand2, Workflow, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { Check, ClipboardCopy, Copy, FileCode2, Loader2, Lock, LockOpen, Maximize2, MessageSquareOff, MessageSquarePlus, Play, Scissors, Trash2, Unlock, Wand2, Workflow, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import type { Service, SqlOutput, TableInfo } from '../../shared/types';
 import { Notice } from '../components/Bits';
 import { confirmDialog, openLayer } from '../components/Layers';
@@ -22,8 +22,9 @@ import { useDatabases } from '../drawer/useDatabases';
 import { attempt, call } from '../lib/api';
 import { useService } from '../lib/store';
 import { compile } from './compile';
+import { ContextMenu, type MenuEntry } from './ContextMenu';
 import { BlueprintContext, COLUMN_LIST } from './context';
-import { GROUP_ORDER, NODE_DEFS, PIN_COLORS, newNode, pinOf, type BpEdge, type BpNode, type NodeKind } from './graph';
+import { GROUP_ORDER, NODE_COLORS, NODE_DEFS, PIN_COLORS, newNode, pinOf, type BpEdge, type BpNode, type Meta, type NodeKind } from './graph';
 import { nodeTypes } from './nodes';
 
 const SYSTEM = new Set(['information_schema', 'mysql', 'performance_schema', 'sys']);
@@ -66,12 +67,21 @@ export function openBlueprint(service: Service, onUseSql: (sql: string) => void)
   );
 }
 
-function BlueprintDialog(props: { service: Service; onClose: () => void; onUseSql: (sql: string) => void }) {
+function BlueprintDialog({ service, onClose, onUseSql }: { service: Service; onClose: () => void; onUseSql: (sql: string) => void }) {
+  const [closing, setClosing] = useState(false);
+  const leave = useCallback(
+    (after: () => void): void => {
+      if (closing) return;
+      setClosing(true);
+      setTimeout(after, 170);
+    },
+    [closing],
+  );
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 p-3 flex">
-      <div className="flex-1 min-w-0 flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-2xl animate-pop">
+    <div className={`fixed inset-x-0 bottom-0 top-10 z-50 bg-black/70 p-3 flex ${closing ? 'animate-fade-out' : 'animate-fade-in'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-2xl ${closing ? 'animate-pop-out' : 'animate-pop'}`}>
         <ReactFlowProvider>
-          <Editor {...props} />
+          <Editor service={service} onClose={() => leave(onClose)} onUseSql={(sql) => leave(() => onUseSql(sql))} />
         </ReactFlowProvider>
       </div>
     </div>
@@ -96,6 +106,8 @@ function Highlighted({ sql }: { sql: string }) {
   );
 }
 
+type MenuTarget = { kind: 'nodes'; ids: string[] } | { kind: 'edge'; id: string } | { kind: 'pane'; at: { x: number; y: number } };
+
 function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () => void; onUseSql: (sql: string) => void }) {
   const live = useService(service.id) ?? service;
   const running = live.status === 'running';
@@ -107,6 +119,8 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
   const [tab, setTab] = useState<'sql' | 'result'>('sql');
   const [output, setOutput] = useState<SqlOutput | null>(null);
   const [busy, setBusy] = useState(false);
+  const [runs, setRuns] = useState(0);
+  const [menu, setMenu] = useState<{ x: number; y: number; target: MenuTarget } | null>(null);
   const flow = useReactFlow();
   const canvas = useRef<HTMLDivElement>(null);
   const pending = useRef(new Map<string, Promise<TableInfo[]>>());
@@ -131,6 +145,9 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
     },
     [service.id],
   );
+
+  const shownNodes = useMemo(() => nodes.map((n) => (n.data.locked ? ({ ...n, draggable: false, deletable: false } as BpNode) : n)), [nodes]);
+  const shownEdges = useMemo(() => (busy ? edges.map((e) => ({ ...e, animated: true })) : edges), [edges, busy]);
 
   const result = useMemo(() => compile(nodes, edges), [nodes, edges]);
   const problemByNode = useMemo(() => {
@@ -179,6 +196,93 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
     },
     [flow, setNodes],
   );
+
+  const patch = useCallback(
+    (ids: string[], meta: Partial<Meta>): void => {
+      setNodes((current) => current.map((n) => (ids.includes(n.id) ? ({ ...n, data: { ...n.data, ...meta } } as BpNode) : n)));
+    },
+    [setNodes],
+  );
+
+  const remove = useCallback(
+    (ids: string[]): void => {
+      const gone = new Set(ids);
+      setNodes((current) => current.filter((n) => !gone.has(n.id)));
+      setEdges((current) => current.filter((e) => !gone.has(e.source) && !gone.has(e.target)));
+    },
+    [setNodes, setEdges],
+  );
+
+  const duplicate = useCallback(
+    (ids: string[]): void => {
+      const stamp = Date.now().toString(36);
+      const map = new Map(ids.map((id, i) => [id, `${stamp}d${i}`]));
+      setNodes((current) => [
+        ...current.map((n) => (n.selected ? ({ ...n, selected: false } as BpNode) : n)),
+        ...current
+          .filter((n) => map.has(n.id))
+          .map((n) => ({ id: map.get(n.id) as string, type: n.type, data: structuredClone(n.data), position: { x: n.position.x + 40, y: n.position.y + 40 }, selected: true }) as BpNode),
+      ]);
+      setEdges((current) => [
+        ...current,
+        ...current
+          .filter((e) => map.has(e.source) && map.has(e.target))
+          .map((e) => ({ ...e, id: `${e.id}-${stamp}`, source: map.get(e.source) as string, target: map.get(e.target) as string, selected: false })),
+      ]);
+    },
+    [setNodes, setEdges],
+  );
+
+  const disconnect = useCallback(
+    (ids: string[]): void => setEdges((current) => current.filter((e) => !ids.includes(e.source) && !ids.includes(e.target))),
+    [setEdges],
+  );
+
+  function openNodeMenu(event: ReactMouseEvent, node: BpNode): void {
+    event.preventDefault();
+    const ids = node.selected ? nodes.filter((n) => n.selected).map((n) => n.id) : [node.id];
+    if (!node.selected) setNodes((current) => current.map((n) => ({ ...n, selected: n.id === node.id }) as BpNode));
+    setMenu({ x: event.clientX, y: event.clientY, target: { kind: 'nodes', ids } });
+  }
+
+  const entries = useMemo((): MenuEntry[] => {
+    if (!menu) return [];
+    const { target } = menu;
+    if (target.kind === 'edge') {
+      return [{ kind: 'action', label: 'Verbindung entfernen', icon: Scissors, danger: true, onSelect: () => setEdges((c) => c.filter((e) => e.id !== target.id)) }];
+    }
+    if (target.kind === 'pane') {
+      const fixed = nodes.filter((n) => n.data.locked).map((n) => n.id);
+      return [
+        { kind: 'action', label: 'Kommentar hier einfügen', icon: MessageSquarePlus, onSelect: () => void addNode('note', target.at) },
+        { kind: 'action', label: 'Alles einpassen', icon: Maximize2, onSelect: () => void flow.fitView({ padding: 0.3, maxZoom: 1, duration: 450 }) },
+        ...(fixed.length
+          ? [{ kind: 'separator' as const }, { kind: 'action' as const, label: `Alle entsperren (${fixed.length})`, icon: LockOpen, onSelect: () => patch(fixed, { locked: false }) }]
+          : []),
+      ];
+    }
+    const picked = nodes.filter((n) => target.ids.includes(n.id));
+    if (!picked.length) return [];
+    const locked = picked.every((n) => n.data.locked === true);
+    const colors = new Set(picked.map((n) => n.data.color));
+    const loose = picked.filter((n) => !n.data.locked).map((n) => n.id);
+    const connected = edges.some((e) => target.ids.includes(e.source) || target.ids.includes(e.target));
+    const plural = picked.length > 1 ? ` (${picked.length})` : '';
+    const noteable = picked.filter((n) => n.type !== 'note' && n.data.note === undefined).map((n) => n.id);
+    const commented = picked.filter((n) => n.type !== 'note' && n.data.note !== undefined).map((n) => n.id);
+    return [
+      { kind: 'action', label: `Duplizieren${plural}`, icon: Copy, onSelect: () => duplicate(target.ids) },
+      { kind: 'action', label: locked ? `Lösen${plural}` : `Fixieren${plural}`, icon: locked ? Unlock : Lock, hint: locked ? '' : 'Position sperren', onSelect: () => patch(target.ids, { locked: !locked }) },
+      { kind: 'separator' },
+      { kind: 'swatches', label: 'Farbe', colors: NODE_COLORS, current: colors.size === 1 ? [...colors][0] : undefined, onPick: (color) => patch(target.ids, { color }) },
+      { kind: 'separator' },
+      ...(noteable.length ? [{ kind: 'action' as const, label: 'Kommentar hinzufügen', icon: MessageSquarePlus, onSelect: () => patch(noteable, { note: '' }) }] : []),
+      ...(commented.length ? [{ kind: 'action' as const, label: 'Kommentar entfernen', icon: MessageSquareOff, onSelect: () => patch(commented, { note: undefined }) }] : []),
+      ...(connected ? [{ kind: 'action' as const, label: 'Verbindungen trennen', icon: Scissors, onSelect: () => disconnect(target.ids) }] : []),
+      { kind: 'separator' },
+      { kind: 'action', label: `Entfernen${plural}`, icon: Trash2, danger: true, disabled: loose.length === 0, hint: loose.length === 0 ? 'Fixiert' : 'Entf', onSelect: () => remove(loose) },
+    ];
+  }, [menu, nodes, edges, flow, addNode, patch, remove, duplicate, disconnect, setEdges]);
 
   const isValidConnection: IsValidConnection<BpEdge> = useCallback(
     (c) => {
@@ -229,7 +333,7 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
       { id: `${stamp}e1`, source: `${stamp}a`, sourceHandle: 'out', target: `${stamp}b`, targetHandle: 'in', style: { stroke: PIN_COLORS.rows, strokeWidth: 2 } },
       { id: `${stamp}e2`, source: `${stamp}b`, sourceHandle: 'out', target: `${stamp}c`, targetHandle: 'in', style: { stroke: PIN_COLORS.rows, strokeWidth: 2 } },
     ]);
-    setTimeout(() => void flow.fitView({ padding: 0.3, maxZoom: 1 }), 50);
+    setTimeout(() => void flow.fitView({ padding: 0.3, maxZoom: 1, duration: 450 }), 60);
   }
 
   async function clear(): Promise<void> {
@@ -258,13 +362,17 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
       if (!ok) return;
     }
     setBusy(true);
+    const started = performance.now();
     try {
       setOutput(await call<SqlOutput>('db.query', { id: service.id, sql: script }));
     } catch (err) {
       setOutput({ results: [], error: { message: err instanceof Error ? err.message : String(err) } });
     }
-    setBusy(false);
+    setRuns((n) => n + 1);
     setTab('result');
+    const rest = 650 - (performance.now() - started);
+    if (rest > 0) await new Promise((resolve) => setTimeout(resolve, rest));
+    setBusy(false);
   }, [busy, blocked, running, result.statements, script, service.id]);
 
   useEffect(() => {
@@ -298,7 +406,7 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
           Im SQL-Editor öffnen
         </button>
         <button className="btn btn-primary btn-sm" onClick={() => void run()} disabled={busy || blocked || !running} data-action="bp-run">
-          <Play className="size-3.5" />
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           {busy ? 'Läuft …' : 'Ausführen'}
         </button>
         <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Blueprint schließen" data-action="bp-close">
@@ -316,8 +424,8 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
               ))}
             </datalist>
             <ReactFlow<BpNode, BpEdge>
-              nodes={nodes}
-              edges={edges}
+              nodes={shownNodes}
+              edges={shownEdges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
@@ -325,6 +433,18 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
               nodeTypes={nodeTypes}
               colorMode="dark"
               deleteKeyCode={['Backspace', 'Delete']}
+              panOnDrag={[0, 1]}
+              onNodeContextMenu={openNodeMenu}
+              onEdgeContextMenu={(event, edge) => {
+                event.preventDefault();
+                setMenu({ x: event.clientX, y: event.clientY, target: { kind: 'edge', id: edge.id } });
+              }}
+              onPaneContextMenu={(event) => {
+                event.preventDefault();
+                const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+                setMenu({ x: event.clientX, y: event.clientY, target: { kind: 'pane', at } });
+              }}
+              onMoveStart={() => setMenu(null)}
               fitView
               fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
               minZoom={0.2}
@@ -332,12 +452,12 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
               defaultEdgeOptions={{ style: { strokeWidth: 2 } }}
             >
               <Background gap={22} color="#2a2a2a" />
-              <Controls showInteractive={false} />
+              <Controls showInteractive={false} fitViewOptions={{ padding: 0.3, maxZoom: 1, duration: 400 }} />
               <MiniMap pannable zoomable maskColor="rgb(0 0 0 / 0.55)" nodeColor="#404040" />
             </ReactFlow>
             {nodes.length === 0 && (
               <div className="absolute inset-0 grid place-items-center pointer-events-none">
-                <div className="pointer-events-auto text-center max-w-sm rounded-2xl border border-dashed border-neutral-700 bg-neutral-900/80 px-6 py-8">
+                <div className="pointer-events-auto animate-pop text-center max-w-sm rounded-2xl border border-dashed border-neutral-700 bg-neutral-900/80 px-6 py-8">
                   <div className="size-12 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto">
                     <Workflow className="size-6" />
                   </div>
@@ -372,7 +492,7 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
                 Kopieren
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <div key={`${tab}-${runs}`} className="flex-1 min-h-0 overflow-y-auto p-4 animate-fade-in">
               {tab === 'sql' ? (
                 <SqlView script={script} problems={result.problems.map((p) => p.message)} />
               ) : output ? (
@@ -384,6 +504,7 @@ function Editor({ service, onClose, onUseSql }: { service: Service; onClose: () 
           </div>
         </div>
       </div>
+      {menu && <ContextMenu x={menu.x} y={menu.y} entries={entries} onClose={() => setMenu(null)} />}
     </BlueprintContext.Provider>
   );
 }
@@ -412,10 +533,10 @@ function SqlView({ script, problems }: { script: string; problems: string[] }): 
 function Palette({ onAdd }: { onAdd: (kind: NodeKind) => void }) {
   return (
     <aside className="w-56 shrink-0 border-r border-neutral-800 overflow-y-auto p-3 space-y-4">
-      {GROUP_ORDER.map((group) => {
+      {GROUP_ORDER.map((group, g) => {
         const defs = Object.values(NODE_DEFS).filter((d) => d.group === group);
         return (
-          <section key={group}>
+          <section key={group} className="animate-rise" style={{ animationDelay: `${g * 40}ms` }}>
             <h3 className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 mb-1.5">{group}</h3>
             <div className="space-y-1">
               {defs.map((def) => (
@@ -428,10 +549,10 @@ function Palette({ onAdd }: { onAdd: (kind: NodeKind) => void }) {
                   }}
                   onClick={() => onAdd(def.kind)}
                   title={def.description}
-                  className="w-full flex items-center gap-2 rounded-lg px-2 h-8 text-left text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-50 transition-colors cursor-grab active:cursor-grabbing"
+                  className="group w-full flex items-center gap-2 rounded-lg px-2 h-8 text-left text-[13px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-50 hover:translate-x-0.5 transition-[background-color,color,transform] duration-150 cursor-grab active:cursor-grabbing active:scale-[0.98]"
                   data-node-kind={def.kind}
                 >
-                  <span className={`size-2.5 rounded-sm shrink-0 ${def.header}`} />
+                  <span className={`size-2.5 rounded-sm shrink-0 transition-transform duration-150 group-hover:scale-125 ${def.header}`} />
                   <span className="truncate">{def.title}</span>
                 </button>
               ))}

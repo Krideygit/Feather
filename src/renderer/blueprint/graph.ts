@@ -12,35 +12,40 @@ export type AggregateItem = { fn: Aggregate; column: string; alias: string };
 export type TableData = { database: string; table: string; alias: string };
 export type JoinData = { kind: JoinKind; left: string; right: string };
 export type ColumnsData = { columns: string[] };
-export type FilterData = Record<string, never>;
+export type FilterData = Record<string, unknown>;
 export type CompareData = { column: string; op: CompareOp; value: string; valueType: ValueType };
 export type LogicData = { op: 'AND' | 'OR' };
-export type NotData = Record<string, never>;
+export type NotData = Record<string, unknown>;
 export type GroupData = { by: string[]; aggregates: AggregateItem[] };
 export type OrderData = { column: string; dir: 'ASC' | 'DESC' };
 export type LimitData = { count: number; offset: number };
-export type DistinctData = Record<string, never>;
-export type ResultData = Record<string, never>;
+export type DistinctData = Record<string, unknown>;
+export type ResultData = Record<string, unknown>;
 export type InsertData = { database: string; table: string; values: Assignment[] };
 export type UpdateData = { database: string; table: string; sets: Assignment[]; all: boolean };
 export type DeleteData = { database: string; table: string; all: boolean };
+export type NoteData = { text: string };
+export type Meta = { color?: string; note?: string; locked?: boolean };
+
+type Typed<D extends Record<string, unknown>, T extends string> = Node<D & Meta, T>;
 
 export type BpNode =
-  | Node<TableData, 'table'>
-  | Node<JoinData, 'join'>
-  | Node<ColumnsData, 'columns'>
-  | Node<FilterData, 'filter'>
-  | Node<CompareData, 'compare'>
-  | Node<LogicData, 'logic'>
-  | Node<NotData, 'not'>
-  | Node<GroupData, 'aggregate'>
-  | Node<OrderData, 'order'>
-  | Node<LimitData, 'limit'>
-  | Node<DistinctData, 'distinct'>
-  | Node<ResultData, 'result'>
-  | Node<InsertData, 'insert'>
-  | Node<UpdateData, 'update'>
-  | Node<DeleteData, 'delete'>;
+  | Typed<TableData, 'table'>
+  | Typed<JoinData, 'join'>
+  | Typed<ColumnsData, 'columns'>
+  | Typed<FilterData, 'filter'>
+  | Typed<CompareData, 'compare'>
+  | Typed<LogicData, 'logic'>
+  | Typed<NotData, 'not'>
+  | Typed<GroupData, 'aggregate'>
+  | Typed<OrderData, 'order'>
+  | Typed<LimitData, 'limit'>
+  | Typed<DistinctData, 'distinct'>
+  | Typed<ResultData, 'result'>
+  | Typed<InsertData, 'insert'>
+  | Typed<UpdateData, 'update'>
+  | Typed<DeleteData, 'delete'>
+  | Typed<NoteData, 'note'>;
 
 export type NodeKind = NonNullable<BpNode['type']>;
 export type BpEdge = Edge;
@@ -65,7 +70,19 @@ export interface NodeDef {
 
 export const PIN_COLORS: Record<PinType, string> = { rows: '#0ea5e9', cond: '#f59e0b' };
 
-export const GROUP_ORDER = ['Quelle', 'Transformieren', 'Bedingungen', 'Ausgabe', 'Aktionen'];
+export const GROUP_ORDER = ['Quelle', 'Transformieren', 'Bedingungen', 'Ausgabe', 'Aktionen', 'Notiz'];
+
+export const NODE_COLORS: { value: string; label: string }[] = [
+  { value: '#0284c7', label: 'Blau' },
+  { value: '#059669', label: 'Grün' },
+  { value: '#d97706', label: 'Orange' },
+  { value: '#e11d48', label: 'Rot' },
+  { value: '#c026d3', label: 'Pink' },
+  { value: '#7c3aed', label: 'Violett' },
+  { value: '#64748b', label: 'Grau' },
+];
+
+export const NOTE_COLOR = '#d97706';
 
 const rowsIn = (id = 'in', label = 'Zeilen'): PinDef => ({ id, label, type: 'rows' });
 const rowsOut: PinDef = { id: 'out', label: 'Zeilen', type: 'rows' };
@@ -226,6 +243,17 @@ export const NODE_DEFS: Record<NodeKind, NodeDef> = {
     outputs: [],
     width: 300,
     create: () => ({ database: '', table: '', sets: [{ column: '', value: '', valueType: 'auto' }], all: false }),
+  },
+  note: {
+    kind: 'note',
+    title: 'Kommentar',
+    group: 'Notiz',
+    description: 'Freie Notiz auf der Arbeitsfläche. Beeinflusst die Abfrage nicht.',
+    header: 'bg-amber-600',
+    inputs: [],
+    outputs: [],
+    width: 240,
+    create: () => ({ text: '' }),
   },
   delete: {
     kind: 'delete',
