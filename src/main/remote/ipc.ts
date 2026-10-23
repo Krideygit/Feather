@@ -17,6 +17,7 @@ import type { SqlConnectionInput } from '../../shared/sql';
 import { join, type RemoteFs } from './backends';
 import { friendly } from './errors';
 import * as creds from './creds';
+import * as cmdhistory from '../cmdhistory';
 import * as sqlhistory from '../sqlhistory';
 import { createModuleMethods } from './modules/manager';
 import { Session } from './session';
@@ -129,6 +130,11 @@ export function registerRemote({ send, pickLocal }: Deps): { shutdown: () => voi
     },
     'sqlhistory.clear': async (p) => ({ removed: await sqlhistory.clear(typeof p.server === 'string' && typeof p.db === 'string' && typeof p.table === 'string' ? { server: p.server, db: p.db, table: p.table } : undefined) }),
     'sqlhistory.stats': () => sqlhistory.stats(),
+
+    'cmdhistory.list': (p) => cmdhistory.list(text(p, 'host')),
+    'cmdhistory.add': async (p) => ({ added: await cmdhistory.add(text(p, 'host'), text(p, 'cmd')) }),
+    'cmdhistory.clear': async () => ({ removed: await cmdhistory.clear() }),
+    'cmdhistory.stats': () => cmdhistory.stats(),
 
     'tunnel.open': async (p) => {
       const l = live(p);

@@ -65,15 +65,25 @@ function startSshServer(serverRoot, hostKey, clientPublicKey, options = {}) {
         session.on('shell', (acc) => {
           const stream = acc();
           state.shells++;
-          stream.write('Willkommen\r\n$ ');
+          const prompt = options.echo ? 'tester@fake:~$ ' : '$ ';
+          stream.write(`Willkommen\r\n${prompt}`);
           let line = '';
           stream.on('data', (d) => {
             for (const ch of d.toString()) {
               if (ch === '\r' || ch === '\n') {
                 if (line === 'exit') return stream.close();
-                stream.write(`\r\nECHO:${line}\r\n$ `);
+                const reply = options.echo && /^(htop|ncdu|nope-\w+)$/.test(line) ? `-bash: ${line}: command not found` : `ECHO:${line}`;
+                stream.write(`\r\n${reply}\r\n${prompt}`);
                 line = '';
-              } else line += ch;
+              } else if (options.echo && ch === '\x7f') {
+                if (line) {
+                  line = line.slice(0, -1);
+                  stream.write('\b \b');
+                }
+              } else {
+                line += ch;
+                if (options.echo && ch >= ' ') stream.write(ch);
+              }
             }
           });
         });
@@ -173,7 +183,7 @@ if (require.main === module) {
   const serverRoot = path.resolve(process.argv[2]);
   const portFile = process.argv[3];
   fs.mkdirSync(serverRoot, { recursive: true });
-  const options = { forward: true };
+  const options = { forward: true, echo: process.argv[6] === 'echo' };
   if (process.argv[4]) {
     const fake = require('./fake-linux').createFakeLinux(path.resolve(process.argv[4]));
     if (process.argv[5] === 'sudo') Object.assign(fake.settings, { uid: '1000', user: 'deploy', sudo: 'password' });

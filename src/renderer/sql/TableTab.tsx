@@ -10,6 +10,7 @@ import { addHistory, loadHistory, noteKey, notesByCell } from '../lib/sqlhistory
 import { ident, literal, rowsOf, runSql, serverKeyOf } from '../lib/sqlsource';
 import { useAppState } from '../lib/store';
 import { openColumnDialog } from './Designer';
+import { useSqlCompletion } from './Completion';
 import { HistoryDialog, HistoryNote } from './History';
 
 const PAGE = 100;
@@ -177,12 +178,14 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
   const [editing, setEditing] = useState<{ row: number; col: number; value: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[] } | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const filterField = useRef<HTMLInputElement>(null);
   const help = useAppState((st) => st.settings.database);
   const server = useMemo(() => serverKeyOf(source), [source]);
   const scope = useMemo(() => ({ server, db, table }), [server, db, table]);
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const notes = useMemo(() => (help.history ? notesByCell(entries) : new Map<string, HistoryEntry[]>()), [entries, help.history]);
   const tracking = help.history || help.keepDeleted;
+  const completion = useSqlCompletion({ source, db, enabled: help.autocomplete, field: filterField, contextPrefix: `SELECT * FROM ${full} WHERE `, onValue: setFilter });
 
   const keys = useMemo(() => columns?.filter((c) => c.key === 'PRI').map((c) => c.name) ?? [], [columns]);
 
@@ -408,14 +411,29 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
         {view === 'data' && (
           <>
             <form
-              className="flex-1 min-w-0"
+              className="relative flex-1 min-w-0"
               onSubmit={(e) => {
                 e.preventDefault();
+                completion.hide();
                 setPage(0);
                 setApplied(filter);
               }}
             >
-              <input className="input h-8 font-mono text-[13px]" placeholder="Filter, z. B. id > 10 AND name LIKE 'A%'" value={filter} spellCheck={false} onChange={(e) => setFilter(e.target.value)} data-bind="table-filter" />
+              <input
+                ref={filterField}
+                className="input h-8 font-mono text-[13px]"
+                placeholder="Filter, z. B. id > 10 AND name LIKE 'A%'"
+                value={filter}
+                spellCheck={false}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  requestAnimationFrame(() => completion.trigger());
+                }}
+                onKeyDown={(e) => void completion.onKeyDown(e)}
+                onBlur={completion.hide}
+                data-bind="table-filter"
+              />
+              {completion.popup}
             </form>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={() => void loadData()} title="Aktualisieren" aria-label="Aktualisieren">
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />

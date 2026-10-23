@@ -89,9 +89,16 @@ export async function resolveTarget(sourceId: string): Promise<SqlTarget> {
   return { conn: { host: '127.0.0.1', port, user: cred.user, password } };
 }
 
+const ddlListeners = new Set<(source: string) => void>();
+const DDL = /\b(create|alter|drop|rename|truncate)\b/i;
+
+export const onSchemaChange = (listener: (source: string) => void): void => void ddlListeners.add(listener);
+
 export async function runSql(sourceId: string, sql: string, database?: string): Promise<SqlOutput> {
   const target = await resolveTarget(sourceId);
-  return call<SqlOutput>('sql.query', { ...target, database: database || undefined, sql });
+  const out = await call<SqlOutput>('sql.query', { ...target, database: database || undefined, sql });
+  if (DDL.test(sql)) ddlListeners.forEach((l) => l(sourceId));
+  return out;
 }
 
 export function rowsOf(output: SqlOutput, index = 0): (string | null)[][] {

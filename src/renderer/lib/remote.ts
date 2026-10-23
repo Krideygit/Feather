@@ -1,6 +1,7 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal } from '@xterm/xterm';
+import { detachHelp, observeOutput } from './termhelp';
 import { useSyncExternalStore } from 'react';
 import {
   RemoteError,
@@ -209,6 +210,7 @@ export async function closeSession(sid: string): Promise<void> {
   if (closing) emitSession('session.closed', closing);
   const terminal = terminals.get(sid);
   if (terminal) {
+    detachHelp(sid);
     terminal.term.dispose();
     terminals.delete(sid);
   }
@@ -343,6 +345,7 @@ export function listenToRemote(): () => void {
     if (name === 'term.data') {
       const { sid, data: text } = data as { sid: string; data: string };
       terminals.get(sid)?.term.write(text);
+      observeOutput(sid, text);
     } else if (name === 'term.exit') {
       const { sid } = data as { sid: string };
       patchSession(sid, { shell: 'exited' });

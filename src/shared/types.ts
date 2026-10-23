@@ -113,6 +113,12 @@ export interface SaveeyeSettings {
 export interface DatabaseSettings {
   history: boolean;
   keepDeleted: boolean;
+  autocomplete: boolean;
+}
+
+export interface TerminalSettings {
+  suggestions: boolean;
+  hints: boolean;
 }
 
 export interface Settings {
@@ -121,6 +127,7 @@ export interface Settings {
   themes: Theme[];
   language: Language;
   database: DatabaseSettings;
+  terminal: TerminalSettings;
   saveeye: SaveeyeSettings;
 }
 

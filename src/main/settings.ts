@@ -2,14 +2,15 @@ import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LANG_CODE } from '../shared/langpack';
-import type { DatabaseSettings, SaveeyeSettings, Settings, Theme } from '../shared/types';
+import type { DatabaseSettings, TerminalSettings, SaveeyeSettings, Settings, Theme } from '../shared/types';
 
 export const DEFAULTS: Settings = {
   runInBackground: true,
   theme: 'feather-dark',
   themes: [],
   language: 'de',
-  database: { history: true, keepDeleted: true },
+  database: { history: true, keepDeleted: true, autocomplete: true },
+  terminal: { suggestions: true, hints: true },
   saveeye: { enabled: false, mode: 'ask', blurOnBlur: false },
 };
 
@@ -44,6 +45,15 @@ function cleanDatabase(raw: unknown, base: DatabaseSettings): DatabaseSettings {
   return {
     history: typeof s.history === 'boolean' ? s.history : base.history,
     keepDeleted: typeof s.keepDeleted === 'boolean' ? s.keepDeleted : base.keepDeleted,
+    autocomplete: typeof s.autocomplete === 'boolean' ? s.autocomplete : base.autocomplete,
+  };
+}
+
+function cleanTerminal(raw: unknown, base: TerminalSettings): TerminalSettings {
+  const s = (raw ?? {}) as Partial<TerminalSettings>;
+  return {
+    suggestions: typeof s.suggestions === 'boolean' ? s.suggestions : base.suggestions,
+    hints: typeof s.hints === 'boolean' ? s.hints : base.hints,
   };
 }
 
@@ -57,6 +67,7 @@ function normalize(raw: Partial<Settings>, base: Settings): Settings {
     language: typeof raw.language === 'string' && LANG_CODE.test(raw.language) ? raw.language : base.language,
     saveeye: cleanSaveeye(raw.saveeye, base.saveeye),
     database: cleanDatabase(raw.database, base.database),
+    terminal: cleanTerminal(raw.terminal, base.terminal),
   };
 }
 
@@ -64,7 +75,7 @@ export function get(): Settings {
   try {
     return normalize(JSON.parse(fs.readFileSync(file(), 'utf8')) as Partial<Settings>, DEFAULTS);
   } catch {
-    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye }, database: { ...DEFAULTS.database } };
+    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye }, database: { ...DEFAULTS.database }, terminal: { ...DEFAULTS.terminal } };
   }
 }
 

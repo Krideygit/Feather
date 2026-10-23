@@ -4,6 +4,8 @@ import type { SqlOutput } from '../../shared/types';
 import { toast } from '../components/Toast';
 import { Results } from '../drawer/Sql';
 import { rowsOf, runSql } from '../lib/sqlsource';
+import { useAppState } from '../lib/store';
+import { useSqlCompletion } from './Completion';
 
 const key = (id: string): string => `feather.sqlpage.${id}`;
 
@@ -23,6 +25,8 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
   const [output, setOutput] = useState<SqlOutput | null>(null);
   const [busy, setBusy] = useState(false);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const autocomplete = useAppState((s) => s.settings.database.autocomplete);
+  const completion = useSqlCompletion({ source, db, enabled: autocomplete, field: editor, onValue: edit });
 
   useEffect(() => {
     let alive = true;
@@ -63,6 +67,7 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (completion.onKeyDown(event)) return;
     const ta = event.currentTarget;
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
@@ -90,16 +95,24 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
           {busy ? 'Läuft …' : 'Ausführen'}
         </button>
       </div>
+      <div className="relative shrink-0">
       <textarea
         ref={editor}
         className="input h-44! py-2.5 font-mono text-[13px] leading-5 resize-y shrink-0"
         value={text}
         spellCheck={false}
         placeholder={'SELECT * FROM tabelle;\nMehrere Befehle mit ; trennen. Markierter Text wird einzeln ausgeführt.'}
-        onChange={(e) => edit(e.target.value)}
+        onChange={(e) => {
+          edit(e.target.value);
+          requestAnimationFrame(() => completion.trigger());
+        }}
         onKeyDown={onKeyDown}
+        onBlur={completion.hide}
+        onClick={completion.hide}
         data-bind="query-text"
       />
+      {completion.popup}
+      </div>
       <div className="flex-1 min-h-0 overflow-y-auto">{output && <Results output={output} />}</div>
     </div>
   );

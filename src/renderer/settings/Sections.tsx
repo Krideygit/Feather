@@ -9,8 +9,9 @@ import { call, refreshProfiles, refreshRuntimes, refreshServices } from '../lib/
 import { formatBytes } from '../lib/format';
 import { loadSqlConnections } from '../lib/creds';
 import { clearHistory, historyStats } from '../lib/sqlhistory';
+import { resetHelpHistory } from '../lib/termhelp';
 import { installPlugin, refreshPlugins, removePlugin, setPluginEnabled, usePlugins } from '../lib/plugins';
-import { loadHosts } from '../lib/remote';
+import { callRemote, loadHosts } from '../lib/remote';
 import { testSaveeye } from '../lib/saveeye';
 import { updateSettings } from '../lib/settings';
 import { setState, useAppState } from '../lib/store';
@@ -239,6 +240,7 @@ export function DatabaseSection() {
         <h3 className="text-sm font-semibold text-neutral-100 mb-3">Hilfen</h3>
         <div className="space-y-5">
           <Toggle checked={config.history} onChange={(history) => set({ history })} label="Änderungsverlauf" description="Feather merkt sich, was vorher in einer Zelle stand. Willst du den Wert später wieder ändern, steht in Rot darunter, wie er früher hieß, und du kannst ihn mit einem Klick zurückholen." />
+          <Toggle checked={config.autocomplete} onChange={(autocomplete) => set({ autocomplete })} label="Intelligente Vorschläge" description="Beim Schreiben von SQL schlägt Feather Befehle, Datenbanken, Tabellen und Spalten vor, auch den nächsten sinnvollen Schritt. Mit Tab übernimmst du den Vorschlag, mit Strg+Leertaste rufst du ihn auf." />
           <Toggle checked={config.keepDeleted} onChange={(keepDeleted) => set({ keepDeleted })} label="Gelöschte Zeilen sichern" description="Löschst du Zeilen in der Tabellenansicht, sichert Feather sie vorher. Im Verlauf der Tabelle stellst du sie wieder her." />
         </div>
       </div>
@@ -249,6 +251,60 @@ export function DatabaseSection() {
           <p className="text-xs text-neutral-500" data-history-stats>{stats ? `${stats.entries} ${stats.entries === 1 ? 'Eintrag' : 'Einträge'} · ${formatBytes(stats.bytes)}` : 'Wird geladen …'}</p>
         </div>
         <button className="btn btn-outline btn-sm text-red-300" disabled={!stats || stats.entries === 0} onClick={() => void clearAll()} data-action="history-clear-all">
+          <Trash2 className="size-3.5" />
+          Alles löschen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function TerminalSection() {
+  const config = useAppState((s) => s.settings.terminal);
+  const [stats, setStats] = useState<{ entries: number; bytes: number } | null>(null);
+  const set = (patch: Partial<typeof config>): void => void updateSettings({ terminal: { ...config, ...patch } });
+
+  async function load(): Promise<void> {
+    try {
+      setStats(await callRemote<{ entries: number; bytes: number }>('cmdhistory.stats'));
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function clearAll(): Promise<void> {
+    const ok = await confirmDialog({ title: 'Befehlsverlauf löschen?', message: 'Alle von Feather gemerkten Befehle werden entfernt. Die Verläufe auf deinen Servern bleiben unberührt.', confirmLabel: 'Löschen', danger: true });
+    if (!ok) return;
+    try {
+      const { removed } = await callRemote<{ removed: number }>('cmdhistory.clear');
+      resetHelpHistory();
+      toast(`${removed} Einträge gelöscht.`, 'success');
+      await load();
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-xl animate-fade-in" data-section="terminal">
+      <div>
+        <h3 className="text-sm font-semibold text-neutral-100 mb-3">Hilfen</h3>
+        <div className="space-y-5">
+          <Toggle checked={config.suggestions} onChange={(suggestions) => set({ suggestions })} label="Befehlsvorschläge" description="Beim Tippen zeigt Feather passende Befehle, Unterbefehle, Optionen und Dienste an, außerdem Befehle, die du auf diesem Server schon benutzt hast. Mit Tab übernimmst du den Vorschlag, mit Strg+Leertaste rufst du ihn auf. Ist kein Vorschlag zu sehen, geht Tab wie gewohnt an deine Shell." />
+          <Toggle checked={config.hints} onChange={(hints) => set({ hints })} label="Hinweise bei Fehlern" description="Meldet der Server einen Fehler, etwa „Befehl nicht gefunden“ oder „Permission denied“, schlägt Feather den passenden Befehl vor. Er wird nur eingefügt, Enter drückst du selbst." />
+        </div>
+      </div>
+      <Notice tone="info">Feather merkt sich eingegebene Befehle pro Server, verschlüsselt auf diesem Rechner. Zeilen mit Passwörtern, Tokens oder Schlüsseln, Passwortabfragen und Zeilen mit führendem Leerzeichen merkt es sich nie.</Notice>
+      <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-neutral-100">Gemerkte Befehle</p>
+          <p className="text-xs text-neutral-500" data-term-stats>{stats ? `${stats.entries} ${stats.entries === 1 ? 'Eintrag' : 'Einträge'} · ${formatBytes(stats.bytes)}` : 'Wird geladen …'}</p>
+        </div>
+        <button className="btn btn-outline btn-sm text-red-300" disabled={!stats || stats.entries === 0} onClick={() => void clearAll()} data-action="term-history-clear">
           <Trash2 className="size-3.5" />
           Alles löschen
         </button>

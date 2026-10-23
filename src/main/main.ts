@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { FileFilter, Service, Settings } from '../shared/types';
 import { createBackup, inspectBackup, restoreBackup } from './backup';
 import * as languages from './languages';
+import * as cmdhistory from './cmdhistory';
 import * as sqlhistory from './sqlhistory';
 import { cleanMeta } from '../shared/langpack';
 import { Core } from './core';
@@ -417,7 +418,7 @@ app.on('before-quit', (event) => {
   quitting = true;
   saveeye.stop();
   remote?.shutdown();
-  void sqlhistory.flush().then(() => core.shutdown()).finally(() => {
+  void Promise.all([sqlhistory.flush(), cmdhistory.flush()]).then(() => core.shutdown()).finally(() => {
     tray?.destroy();
     app.quit();
   });

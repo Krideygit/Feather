@@ -27,6 +27,8 @@ function bundle(name, entry) {
 const genPath = bundle('sqlgen', 'src/shared/sqlgen.ts');
 const historyPath = bundle('sqlhistory', 'src/main/sqlhistory.ts');
 const gen = require(genPath);
+const cmpPath = bundle('sqlcomplete', 'src/shared/sqlcomplete.ts');
+const cmp = require(cmpPath);
 
 let passed = 0;
 async function test(name, fn) {
@@ -117,6 +119,102 @@ const col = (over) => gen.blankColumn(over);
     assert.equal(spec('bigint(20)').length, '');
     assert.equal(spec('longtext', { nullable: true }).defaultMode, 'null');
     assert.equal(gen.columnDefinition(spec('varchar(255)', { nullable: true, fallback: 'NULL' })), '`c` VARCHAR(255) NULL DEFAULT NULL');
+  });
+
+  const schema = {
+    databases: ['shop', 'mysql'],
+    tables: (db) => (db === 'shop' ? ['order-items', 'orders', 'users'] : undefined),
+    columns: (db, table) => {
+      if (db !== 'shop') return undefined;
+      if (table === 'users') return [{ name: 'id', type: 'int', key: 'PRI' }, { name: 'name', type: 'varchar(64)' }, { name: 'email', type: 'varchar(200)' }];
+      if (table === 'orders') return [{ name: 'id', type: 'int', key: 'PRI' }, { name: 'user_id', type: 'int' }, { name: 'total', type: 'decimal(10,2)' }];
+      return undefined;
+    },
+  };
+  const at = (text, opts = {}) => {
+    const caret = text.includes('|') ? text.indexOf('|') : text.length;
+    const clean = text.replace('|', '');
+    const a = cmp.analyze(clean, caret);
+    return { a, clean, caret, items: cmp.suggest(a, schema, 'shop', opts.usage ?? {}, opts.force ?? false) };
+  };
+  const labels = (r) => r.items.map((i) => i.label);
+
+  await test('SQL-Vorschläge: Anfang einer Abfrage liefert Befehle', () => {
+    assert.equal(labels(at('SEL'))[0], 'SELECT * FROM');
+    assert.ok(labels(at('ins')).includes('INSERT INTO'));
+    assert.deepEqual(labels(at('')), []);
+    assert.ok(labels(at('', { force: true })).includes('SELECT * FROM'));
+  });
+
+  await test('SQL-Vorschläge: nach FROM kommen Tabellen und Datenbanken', () => {
+    const r = at('SELECT * FROM ');
+    assert.deepEqual(labels(r).slice(0, 3), ['order-items', 'orders', 'users']);
+    assert.ok(labels(r).includes('shop'));
+    assert.equal(labels(at('SELECT * FROM us'))[0], 'users');
+    assert.ok(labels(at('SELECT * FROM users u JOIN or')).includes('orders'));
+    const dash = at('SELECT * FROM or');
+    assert.equal(cmp.applyItem(dash.clean, dash.a, dash.items.find((i) => i.label === 'order-items')).text, 'SELECT * FROM `order-items`');
+  });
+
+  await test('SQL-Vorschläge: Spalten kommen aus den Tabellen der Abfrage, auch wenn FROM hinter dem Cursor steht', () => {
+    assert.deepEqual(labels(at('SELECT | FROM users')).slice(0, 3), ['id', 'name', 'email']);
+    assert.equal(labels(at('SELECT * FROM users WHERE na'))[0], 'name');
+    assert.equal(labels(at('SELECT * FROM users WHERE na| = 3'))[0], 'name');
+    assert.deepEqual(labels(at('SELECT * FROM users u JOIN orders o ON o.')).slice(0, 3), ['id', 'user_id', 'total']);
+    assert.deepEqual(labels(at('SELECT u.| FROM users u')).slice(0, 3), ['id', 'name', 'email']);
+    assert.deepEqual(labels(at('SELECT * FROM shop.')), ['order-items', 'orders', 'users']);
+    assert.deepEqual(labels(at('INSERT INTO users (')).slice(0, 3), ['id', 'name', 'email']);
+    assert.deepEqual(labels(at('SELECT shop.users.')).slice(0, 3), ['id', 'name', 'email']);
+    assert.deepEqual(labels(at('UPDATE users SET ')).slice(0, 3), ['id', 'name', 'email']);
+  });
+
+  await test('SQL-Vorschläge: schlagen den nächsten sinnvollen Schritt vor', () => {
+    assert.ok(labels(at('SELECT * FROM users ')).includes('WHERE'));
+    assert.ok(labels(at('SELECT * FROM users WHERE name ')).includes('LIKE'));
+    assert.ok(labels(at('SELECT * FROM users WHERE name ')).includes('IS NULL'));
+    assert.deepEqual(labels(at('SELECT * FROM users ORDER BY name ')).slice(0, 3).sort(), ['ASC', 'DESC', 'LIMIT']);
+    assert.ok(labels(at('CREATE ')).includes('TABLE'));
+    assert.deepEqual(labels(at('GROUP ')), ['BY']);
+    assert.ok(labels(at('SHOW ')).includes('TABLES'));
+    assert.ok(labels(at('ALTER TABLE users ')).includes('ADD COLUMN'));
+    assert.ok(labels(at('SELECT id ')).includes('FROM'));
+    assert.deepEqual(labels(at('USE ')).sort(), ['mysql', 'shop']);
+    assert.ok(labels(at('DESC ')).includes('users'));
+  });
+
+  await test('SQL-Vorschläge: in Texten und Kommentaren bleibt es still, Anweisungen sind getrennt', () => {
+    assert.equal(at("SELECT 'FR|OM'").items.length, 0);
+    assert.equal(at('SELECT 1 -- FRO|').items.length, 0);
+    assert.equal(at('/* FRO| */').items.length, 0);
+    assert.ok(labels(at('SELECT * FROM users; SELECT * FROM or')).includes('orders'));
+    assert.deepEqual(labels(at('SELECT 1; SELECT | FROM orders')).slice(0, 3), ['id', 'user_id', 'total']);
+    assert.ok(at("SELECT * FROM users WHERE name = 'x' AND ").items.length > 0);
+  });
+
+  await test('SQL-Vorschläge: Funktionen setzen den Cursor in die Klammern, Backticks bleiben erhalten', () => {
+    const r = at('SELECT COU');
+    const fn = r.items.find((i) => i.label === 'COUNT()');
+    assert.ok(fn);
+    const applied = cmp.applyItem(r.clean, r.a, fn);
+    assert.equal(applied.text, 'SELECT COUNT()');
+    assert.equal(applied.caret, 'SELECT COUNT('.length);
+    const q = at('SELECT * FROM `us');
+    assert.equal(q.a.quoted, true);
+    assert.equal(cmp.applyItem(q.clean, q.a, q.items[0]).text, 'SELECT * FROM `users`');
+    const w = at('SELECT * FROM users WHERE name ');
+    const like = cmp.applyItem(w.clean, w.a, w.items.find((i) => i.label === 'LIKE'));
+    assert.equal(like.text.slice(like.caret - 1, like.caret + 1), '%%');
+  });
+
+  await test('SQL-Vorschläge: häufig genutzte Einträge rücken nach vorn, benötigte Schemateile werden gemeldet', () => {
+    assert.equal(labels(at('SELECT * FROM users WHERE '))[0], 'id');
+    assert.equal(labels(at('SELECT * FROM users WHERE ', { usage: { 'column:email': 5 } }))[0], 'email');
+    const a = cmp.analyze('SELECT u. FROM users u', 9);
+    assert.deepEqual(cmp.needs(a, schema, 'shop').columns, [{ db: 'shop', table: 'users' }]);
+    assert.deepEqual(cmp.needs(cmp.analyze('SELECT * FROM ', 14), schema, 'shop'), { databases: true, tables: ['shop'], columns: [] });
+    assert.deepEqual(cmp.needs(cmp.analyze('SELECT * FROM mysql.', 20), schema, 'shop').tables, ['mysql']);
+    assert.equal(cmp.quoteIdent('order'), '`order`');
+    assert.equal(cmp.quoteIdent('name'), 'name');
   });
 
   let history = require(historyPath);

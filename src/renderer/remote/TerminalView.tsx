@@ -1,10 +1,14 @@
 import { ClipboardCopy, ClipboardPaste, Eraser, MousePointerClick, Plug, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
-import { reconnect, restartShell, saveFontSize, savedFontSize, startShell, terminalFor, type SessionView } from '../lib/remote';
+import { getModules } from '../lib/modules';
+import { callRemote, getRemote, reconnect, restartShell, saveFontSize, savedFontSize, sendToTerminal, startShell, terminalFor, type SessionView } from '../lib/remote';
+import { attachHelp, handleHelpKey } from '../lib/termhelp';
+import { TermAssist } from './TermAssist';
 
 export function TerminalView({ session, visible }: { session: SessionView; visible: boolean }) {
   const holder = useRef<HTMLDivElement>(null);
+  const outer = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { sid } = session;
 
@@ -28,7 +32,21 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
       el.appendChild(entry.term.element);
     }
 
+    const live = (): SessionView | undefined => getRemote().sessions.find((s) => s.sid === sid);
+    attachHelp(sid, entry.term, {
+      send: (data) => sendToTerminal(sid, data),
+      hostKey: () => {
+        const s = live();
+        return s ? (s.hostId ? `host:${s.hostId}` : `adhoc:${s.username}@${s.host}:${s.port}`) : '';
+      },
+      isRoot: () => live()?.username === 'root',
+      manager: () => getModules(sid).sys?.pm ?? 'apt',
+      units: () => Object.values(getModules(sid).sys?.modules ?? {}).filter((m) => m.installed && m.service).map((m) => m.service),
+      call: (method, params) => callRemote(method, params),
+    });
+
     entry.term.attachCustomKeyEventHandler((event) => {
+      if (handleHelpKey(sid, event)) return false;
       if (event.type !== 'keydown') return true;
       const key = event.key.toLowerCase();
       const copyCombo = (event.ctrlKey && event.shiftKey && key === 'c') || (event.ctrlKey && key === 'insert');
@@ -107,7 +125,7 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
   const ended = session.status === 'closed' || session.shell === 'exited';
 
   return (
-    <div className="relative flex-1 min-w-0 min-h-0 bg-[#0f0f0f]">
+    <div ref={outer} className="relative flex-1 min-w-0 min-h-0 bg-[#0f0f0f]">
       <div
         ref={holder}
         className="absolute inset-0 pl-3 pt-2 pb-1"
@@ -117,6 +135,7 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
         }}
         data-terminal={sid}
       />
+      <TermAssist sid={sid} visible={visible && !ended} outer={outer} />
       {ended && (
         <div className="absolute inset-x-0 bottom-0 animate-rise flex items-center gap-3 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur px-4 py-2.5">
           <span className={`size-2 rounded-full ${session.status === 'closed' ? 'bg-red-500' : 'bg-amber-400'}`} />

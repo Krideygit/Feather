@@ -32,7 +32,7 @@ let state: AppState = {
   profiles: [],
   info: null,
   version: '',
-  settings: { runInBackground: true, theme: 'feather-dark', themes: [], language: 'de', saveeye: { enabled: false, mode: 'ask', blurOnBlur: false }, database: { history: true, keepDeleted: true } },
+  settings: { runInBackground: true, theme: 'feather-dark', themes: [], language: 'de', saveeye: { enabled: false, mode: 'ask', blurOnBlur: false }, database: { history: true, keepDeleted: true, autocomplete: true }, terminal: { suggestions: true, hints: true } },
   coreError: null,
   ready: false,
 };
