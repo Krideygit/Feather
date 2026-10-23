@@ -1,13 +1,14 @@
-import { Archive, EyeOff, Languages, Palette, Puzzle, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Archive, Database, EyeOff, Languages, Palette, Puzzle, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { BackupSection, GeneralSection, LanguageSection, PluginsSection, SaveeyeSection } from '../settings/Sections';
+import { BackupSection, DatabaseSection, GeneralSection, LanguageSection, PluginsSection, SaveeyeSection } from '../settings/Sections';
 import { ThemeSection } from '../settings/ThemeSection';
 
-type Section = 'themes' | 'language' | 'saveeye' | 'backup' | 'plugins' | 'general';
+type Section = 'themes' | 'language' | 'database' | 'saveeye' | 'backup' | 'plugins' | 'general';
 
 const SECTIONS: { id: Section; label: string; description: string; icon: LucideIcon }[] = [
   { id: 'themes', label: 'Darstellung', description: 'Wähle ein Thema oder gestalte dein eigenes.', icon: Palette },
   { id: 'language', label: 'Sprache', description: 'Die Sprache der Oberfläche.', icon: Languages },
+  { id: 'database', label: 'Datenbank', description: 'Hilfen für Feather SQL und die Tabellenansicht.', icon: Database },
   { id: 'saveeye', label: 'Saveeye', description: 'Schütze dein Feather bei Bildschirmaufnahmen und Übertragungen.', icon: EyeOff },
   { id: 'backup', label: 'Sicherung', description: 'Sichere alles in einer Datei und hole es jederzeit zurück.', icon: Archive },
   { id: 'plugins', label: 'Plugins', description: 'Erweitere Feather mit eigenen .jar-Plugins.', icon: Puzzle },
@@ -44,6 +45,7 @@ export function SettingsPage() {
           <div key={section}>
             {section === 'themes' && <ThemeSection />}
             {section === 'language' && <LanguageSection />}
+            {section === 'database' && <DatabaseSection />}
             {section === 'saveeye' && <SaveeyeSection />}
             {section === 'backup' && <BackupSection />}
             {section === 'plugins' && <PluginsSection />}

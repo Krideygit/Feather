@@ -1,10 +1,11 @@
-import { ChevronRight, Database, FilePlus2, Loader2, Plus, RefreshCw, Search, Table2, Trash2, Eraser, Eye, TextCursorInput } from 'lucide-react';
+import { ChevronRight, Database, FilePlus2, Grid2x2Plus, Loader2, Plus, RefreshCw, Search, Table2, Trash2, Eraser, Eye, TextCursorInput } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { Field } from '../components/Form';
 import { Modal, confirmDialog, openLayer } from '../components/Layers';
 import { toast } from '../components/Toast';
 import { ident, literal, rowsOf, runSql } from '../lib/sqlsource';
+import { openTableDesigner } from './Designer';
 
 const SYSTEM = new Set(['information_schema', 'mysql', 'performance_schema', 'sys']);
 
@@ -101,6 +102,12 @@ export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Pro
     if (!db.open && !db.tables) void loadTables(db.name);
   }
 
+  function newTable(db: string): void {
+    openTableDesigner(source, db, (table) => {
+      void loadTables(db).then(() => onOpenTable(db, table));
+    });
+  }
+
   async function dropDb(name: string): Promise<void> {
     const ok = await confirmDialog({ title: `Datenbank „${name}“ löschen?`, message: 'Alle Tabellen und Daten darin werden unwiderruflich gelöscht.', confirmLabel: 'Löschen', danger: true });
     if (!ok) return;
@@ -179,6 +186,7 @@ export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Pro
                     x: e.clientX,
                     y: e.clientY,
                     entries: [
+                      { kind: 'action', label: 'Neue Tabelle …', icon: Grid2x2Plus, onSelect: () => newTable(db.name) },
                       { kind: 'action', label: 'Neue Abfrage', icon: FilePlus2, onSelect: () => onQuery(db.name) },
                       { kind: 'action', label: 'Tabellen aktualisieren', icon: RefreshCw, onSelect: () => void loadTables(db.name) },
                       ...(system ? [] : [{ kind: 'separator' as const }, { kind: 'action' as const, label: 'Datenbank löschen', icon: Trash2, danger: true, onSelect: () => void dropDb(db.name) }]),
@@ -194,6 +202,12 @@ export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Pro
               {open && (
                 <div className="animate-fade-in">
                   {db.error && <p className="pl-9 pr-2 py-1 text-xs text-red-300">{db.error}</p>}
+                  {!system && (
+                    <button className="flex w-full items-center gap-1.5 pl-8 pr-2 h-7 text-[13px] text-neutral-500 hover:bg-neutral-800/60 hover:text-primary transition-colors" onClick={() => newTable(db.name)} data-action="new-table" data-for={db.name}>
+                      <Grid2x2Plus className="size-3.5" />
+                      Neue Tabelle …
+                    </button>
+                  )}
                   {tables?.length === 0 && !db.loading && <p className="pl-9 py-1 text-xs text-neutral-600">Keine Tabellen</p>}
                   {tables?.map((t) => (
                     <div

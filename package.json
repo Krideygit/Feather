@@ -16,7 +16,7 @@
     "dev": "node scripts/dev.js",
     "smoke": "node scripts/smoke-core.js",
     "dist": "npm run typecheck && npm run build && electron-builder",
-    "test": "node scripts/test-blueprint.js && node scripts/test-remote.js && node scripts/test-modules.js && node scripts/test-backup.js && node scripts/test-saveeye.js && node scripts/test-i18n.js && node scripts/test-plugins.js",
+    "test": "node scripts/test-blueprint.js && node scripts/test-remote.js && node scripts/test-modules.js && node scripts/test-backup.js && node scripts/test-saveeye.js && node scripts/test-i18n.js && node scripts/test-plugins.js && node scripts/test-sql.js",
     "build:plugins": "node scripts/build-plugins.js"
   },
   "devDependencies": {

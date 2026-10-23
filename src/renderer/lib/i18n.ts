@@ -1,17 +1,20 @@
 import type { Language } from '../../shared/types';
+import { mergePack } from '../../shared/langpack';
 import { EN } from './i18n-en';
 
-const TEXT_ATTRIBUTES = ['placeholder', 'title', 'aria-label', 'alt'];
+const TEXT_ATTRIBUTES = ['placeholder', 'title', 'aria-label', 'alt', 'label'];
 const SKIP = 'script, style, textarea, pre, code, [data-notranslate], [contenteditable=true], .xterm';
 
-type Rule = { regex: RegExp; template: string };
+type Rule = { regex: RegExp; source: string };
 
 const PLACEHOLDER = /\{(\d+)\}/;
 
-const rules: Rule[] = Object.entries(EN)
-  .filter(([source]) => PLACEHOLDER.test(source))
-  .sort((a, b) => b[0].length - a[0].length)
-  .map(([source, template]) => {
+let dict: Record<string, string> = EN;
+
+const rules: Rule[] = Object.keys(EN)
+  .filter((source) => PLACEHOLDER.test(source))
+  .sort((a, b) => b.length - a.length)
+  .map((source) => {
     const escaped = source
       .split(/(\{\d+\})/)
       .map((part) => {
@@ -19,7 +22,7 @@ const rules: Rule[] = Object.entries(EN)
         return slot ? `(?<g${slot[1]}>[\\s\\S]+?)` : part.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
       })
       .join('');
-    return { regex: new RegExp(`^${escaped}$`), template };
+    return { regex: new RegExp(`^${escaped}$`), source };
   });
 
 const ownText = new WeakMap<Node, { original: string; shown: string }>();
@@ -30,14 +33,14 @@ let active = false;
 export function translate(text: string): string {
   const trimmed = text.trim().replace(/\s+/g, ' ');
   if (!trimmed) return text;
-  const direct = Object.hasOwn(EN, trimmed) ? EN[trimmed] : undefined;
+  const direct = Object.hasOwn(dict, trimmed) ? dict[trimmed] : undefined;
   let result: string | undefined = direct;
   if (result === undefined) {
     for (const rule of rules) {
       const match = rule.regex.exec(trimmed);
       if (match) {
         const groups = match.groups ?? {};
-        result = rule.template.replace(/\{(\d+)\}/g, (_m, n: string) => translate(groups[`g${n}`] ?? ''));
+        result = (dict[rule.source] ?? rule.source).replace(/\{(\d+)\}/g, (_m, n: string) => translate(groups[`g${n}`] ?? ''));
         break;
       }
     }
@@ -120,12 +123,42 @@ function restore(root: Node): void {
   }
 }
 
-export function applyLanguage(language: Language): void {
+export const setPack = (strings: Record<string, string> | null): void => {
+  dict = mergePack(EN, strings);
+};
+
+let applyToken = 0;
+
+async function packFor(language: string): Promise<Record<string, string> | null> {
+  if (language === 'en') return null;
+  try {
+    const reply = await window.feather.languagePack(language);
+    return reply.ok ? (reply.result ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function applyLanguage(language: Language): Promise<void> {
+  const token = ++applyToken;
   document.documentElement.lang = language;
-  if (language === 'en') {
-    if (active) return;
+  if (language === 'de') {
+    if (!active) return;
+    active = false;
+    observer?.disconnect();
+    observer = null;
+    restore(document.body);
+    return;
+  }
+  const strings = await packFor(language);
+  if (token !== applyToken) return;
+  if (active) {
+    observer?.disconnect();
+    restore(document.body);
+  }
+  setPack(strings);
+  if (!active) {
     active = true;
-    walk(document.body);
     observer = new MutationObserver((records) => {
       observer?.disconnect();
       for (const r of records) {
@@ -135,13 +168,9 @@ export function applyLanguage(language: Language): void {
       }
       observer?.observe(document.body, OPTIONS);
     });
-    observer.observe(document.body, OPTIONS);
-  } else if (active) {
-    active = false;
-    observer?.disconnect();
-    observer = null;
-    restore(document.body);
   }
+  walk(document.body);
+  observer?.observe(document.body, OPTIONS);
 }
 
 const OPTIONS: MutationObserverInit = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: TEXT_ATTRIBUTES };

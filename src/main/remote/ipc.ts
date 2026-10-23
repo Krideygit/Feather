@@ -17,6 +17,7 @@ import type { SqlConnectionInput } from '../../shared/sql';
 import { join, type RemoteFs } from './backends';
 import { friendly } from './errors';
 import * as creds from './creds';
+import * as sqlhistory from '../sqlhistory';
 import { createModuleMethods } from './modules/manager';
 import { Session } from './session';
 import { Transfers } from './transfers';
@@ -115,6 +116,19 @@ export function registerRemote({ send, pickLocal }: Deps): { shutdown: () => voi
     'creds.save': (p) => creds.save(p.input as SqlConnectionInput),
     'creds.remove': (p) => creds.remove(text(p, 'id')),
     'creds.reveal': async (p) => ({ password: await creds.reveal(text(p, 'id')) }),
+
+    'sqlhistory.add': async (p) => ({ added: await sqlhistory.add(Array.isArray(p.entries) ? p.entries : []) }),
+    'sqlhistory.table': (p) => sqlhistory.forTable({ server: text(p, 'server'), db: text(p, 'db'), table: text(p, 'table') }),
+    'sqlhistory.undone': async (p) => {
+      await sqlhistory.markUndone(strings(p, 'ids'));
+      return {};
+    },
+    'sqlhistory.remove': async (p) => {
+      await sqlhistory.remove(strings(p, 'ids'));
+      return {};
+    },
+    'sqlhistory.clear': async (p) => ({ removed: await sqlhistory.clear(typeof p.server === 'string' && typeof p.db === 'string' && typeof p.table === 'string' ? { server: p.server, db: p.db, table: p.table } : undefined) }),
+    'sqlhistory.stats': () => sqlhistory.stats(),
 
     'tunnel.open': async (p) => {
       const l = live(p);

@@ -77,7 +77,23 @@ export interface AppInfo {
   windows: boolean;
 }
 
-export type Language = 'de' | 'en';
+export type Language = string;
+
+export interface LanguageInfo {
+  code: string;
+  name: string;
+  author: string;
+  version: string;
+  builtin: boolean;
+  translated: number;
+  total: number;
+}
+
+export interface LanguageImportResult {
+  info: LanguageInfo;
+  skipped: number;
+  replaced: boolean;
+}
 
 export interface Theme {
   id: string;
@@ -94,11 +110,17 @@ export interface SaveeyeSettings {
   blurOnBlur: boolean;
 }
 
+export interface DatabaseSettings {
+  history: boolean;
+  keepDeleted: boolean;
+}
+
 export interface Settings {
   runInBackground: boolean;
   theme: string;
   themes: Theme[];
   language: Language;
+  database: DatabaseSettings;
   saveeye: SaveeyeSettings;
 }
 
@@ -231,6 +253,13 @@ export interface FeatherBridge {
   backupPick(): Promise<BridgeReply<{ file: string; info: BackupInfoView } | null>>;
   backupRestore(options: { file: string; password: string }): Promise<BridgeReply<RestoreReportView>>;
   pluginSample(): Promise<string | null>;
+  languagesList(): Promise<BridgeReply<LanguageInfo[]>>;
+  languagePack(code: string): Promise<BridgeReply<Record<string, string> | null>>;
+  languageImport(): Promise<BridgeReply<LanguageImportResult | null>>;
+  languageRemove(code: string): Promise<BridgeReply<null>>;
+  languageTemplate(meta: { code: string; name: string; author: string }): Promise<BridgeReply<{ file: string; total: number } | null>>;
+  languagesFolder(): Promise<string>;
+  logRenderer(text: string): void;
 }
 
 export interface BridgeReply<T> {

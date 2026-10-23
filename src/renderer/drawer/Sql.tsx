@@ -117,7 +117,7 @@ export function Results({ output }: { output: SqlOutput }) {
                   <thead className="sticky top-0 bg-neutral-900">
                     <tr>
                       {r.columns.map((c, ci) => (
-                        <th key={ci} className="px-3 py-2 text-left font-medium text-neutral-400 border-b border-neutral-800 whitespace-nowrap">{c}</th>
+                        <th key={ci} className="px-3 py-2 text-left font-medium text-neutral-400 border-b border-neutral-800 whitespace-nowrap" data-notranslate>{c}</th>
                       ))}
                     </tr>
                   </thead>
@@ -128,7 +128,7 @@ export function Results({ output }: { output: SqlOutput }) {
                           v === null ? (
                             <td key={ci} className="px-3 py-1.5 text-neutral-600 italic">NULL</td>
                           ) : (
-                            <td key={ci} className="px-3 py-1.5 text-neutral-200 whitespace-nowrap max-w-[320px] truncate" title={v}>{v}</td>
+                            <td key={ci} className="px-3 py-1.5 text-neutral-200 whitespace-nowrap max-w-[320px] truncate" title={v} data-notranslate>{v}</td>
                           ),
                         )}
                       </tr>

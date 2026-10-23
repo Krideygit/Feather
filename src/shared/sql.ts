@@ -32,3 +32,31 @@ export interface SqlTarget {
   id?: string;
   conn?: { host: string; port: number; user: string; password: string };
 }
+
+export type HistoryKind = 'update' | 'delete';
+
+export interface HistoryEntry {
+  id: string;
+  ts: number;
+  server: string;
+  db: string;
+  table: string;
+  kind: HistoryKind;
+  key: Record<string, string | null>;
+  column: string;
+  old: string | null;
+  value: string | null;
+  row: Record<string, string | null> | null;
+  undone?: number;
+}
+
+export interface HistoryScope {
+  server: string;
+  db: string;
+  table: string;
+}
+
+export interface HistoryStats {
+  entries: number;
+  bytes: number;
+}

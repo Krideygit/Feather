@@ -100,5 +100,11 @@ export function rowsOf(output: SqlOutput, index = 0): (string | null)[][] {
   return result && result.type === 'rows' ? result.rows : [];
 }
 
-export const ident = (name: string): string => `\`${name.replace(/`/g, '``')}\``;
-export const literal = (value: string): string => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\0/g, '')}'`;
+export { ident, literal } from '../../shared/sqlgen';
+
+export function serverKeyOf(sourceId: string): string {
+  if (sourceId.startsWith(LOCAL_PREFIX)) return `local:${sourceId.slice(LOCAL_PREFIX.length)}`;
+  const cred = getSqlConnections().find((c) => `${CRED_PREFIX}${c.id}` === sourceId);
+  if (!cred) return sourceId;
+  return cred.kind === 'direct' ? `direct:${cred.dbHost}:${cred.port}` : `ssh:${cred.hostKey}:${cred.dbHost}:${cred.port}`;
+}

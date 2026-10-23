@@ -8,7 +8,13 @@ const root = path.join(__dirname, '..');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'feather-i18n-'));
 const out = path.join(work, 'i18n.cjs');
 esbuild.buildSync({ entryPoints: [path.join(root, 'src', 'renderer', 'lib', 'i18n.ts')], bundle: true, format: 'cjs', platform: 'node', outfile: out, logLevel: 'error' });
-const { translate } = require(out);
+const { translate, setPack } = require(out);
+const enOut = path.join(work, 'en.cjs');
+esbuild.buildSync({ entryPoints: [path.join(root, 'src', 'renderer', 'lib', 'i18n-en.ts')], bundle: true, format: 'cjs', platform: 'node', outfile: enOut, logLevel: 'error' });
+const { EN: DICT } = require(enOut);
+const packOut = path.join(work, 'langpack.cjs');
+esbuild.buildSync({ entryPoints: [path.join(root, 'src', 'shared', 'langpack.ts')], bundle: true, format: 'cjs', platform: 'node', outfile: packOut, logLevel: 'error' });
+const { parsePack, buildTemplate, mergePack } = require(packOut);
 const { EN } = require(path.join(work, 'i18n.cjs')).default ?? {};
 
 let passed = 0;
@@ -56,6 +62,59 @@ test('Wörterbuch hat keine leeren oder doppelten Übersetzungen', () => {
     const slots = (text) => (text.match(/\{\d+\}/g) ?? []).sort().join();
     assert.equal(slots(value), slots(key), `Platzhalter passen nicht bei „${key}“`);
   }
+});
+
+const meta = { code: 'tr', name: 'Türkçe', author: 'Ali', version: '1.0.0' };
+const template = () => JSON.parse(buildTemplate(meta, DICT));
+
+test('Vorlage enthält alle Texte mit englischer Vorgabe und Metadaten', () => {
+  const t = template();
+  assert.equal(t.code, 'tr');
+  assert.equal(t.name, 'Türkçe');
+  assert.equal(Object.keys(t.strings).length, Object.keys(DICT).length);
+  assert.equal(t.strings['Abbrechen'], 'Cancel');
+  assert.equal(parsePack(JSON.stringify(t), DICT).translated, 0);
+});
+
+test('Importierte Übersetzung wird genutzt, fehlende Texte fallen auf Englisch zurück', () => {
+  const t = template();
+  t.strings['Abbrechen'] = 'İptal';
+  t.strings['„{0}“ wurde erstellt.'] = '“{0}” oluşturuldu.';
+  delete t.strings['Speichern'];
+  const parsed = parsePack(JSON.stringify(t), DICT);
+  assert.equal(parsed.translated, 2);
+  setPack(parsed.strings);
+  assert.equal(translate('Abbrechen'), 'İptal');
+  assert.equal(translate('„Shop“ wurde erstellt.'), '“Shop” oluşturuldu.');
+  assert.equal(translate('Speichern'), 'Save');
+  assert.equal(translate('Meine eigene Datenbank xyz'), 'Meine eigene Datenbank xyz');
+  setPack(null);
+  assert.equal(translate('Abbrechen'), 'Cancel');
+});
+
+test('Fehlerhafte Einträge werden übersprungen, kaputte Dateien abgelehnt', () => {
+  const t = template();
+  t.strings['„{0}“ wurde erstellt.'] = 'oluşturuldu';
+  t.strings['Gibt es nicht'] = 'x';
+  t.strings['Abbrechen'] = 'İptal';
+  const parsed = parsePack(JSON.stringify(t), DICT);
+  assert.equal(parsed.skipped, 2);
+  assert.equal(parsed.strings['„{0}“ wurde erstellt.'], undefined);
+  assert.throws(() => parsePack('{ kaputt', DICT), /keine gültige Sprachdatei/);
+  assert.throws(() => parsePack(JSON.stringify({ ...t, code: 'en' }), DICT), /fest eingebaut/);
+  assert.throws(() => parsePack(JSON.stringify({ ...t, code: 'Türkisch!' }), DICT), /Sprachcode/);
+  assert.throws(() => parsePack(JSON.stringify({ ...t, name: ' ' }), DICT), /Name der Sprache/);
+  assert.throws(() => parsePack(JSON.stringify({ ...t, strings: { Unbekannt1: 'x' } }), DICT), /keine verwendbaren/);
+  assert.throws(() => parsePack(JSON.stringify({ ...t, format: 2 }), DICT), /neueren/);
+});
+
+test('Prototyp-Schlüssel in Sprachdateien richten nichts an', () => {
+  const t = template();
+  const text = JSON.stringify(t).replace('"strings":{', '"strings":{"__proto__":"x","constructor":"y",');
+  const parsed = parsePack(text, DICT);
+  assert.equal(Object.getPrototypeOf(parsed.strings), Object.prototype);
+  assert.equal({}.polluted, undefined);
+  assert.equal(mergePack(DICT, null), DICT);
 });
 
 console.log(`\n${passed} Übersetzungs-Tests bestanden`);

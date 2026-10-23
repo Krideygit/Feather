@@ -3,6 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { FileFilter, Service, Settings } from '../shared/types';
 import { createBackup, inspectBackup, restoreBackup } from './backup';
+import * as languages from './languages';
+import * as sqlhistory from './sqlhistory';
+import { cleanMeta } from '../shared/langpack';
 import { Core } from './core';
 import { registerRemote } from './remote/ipc';
 import * as settings from './settings';
@@ -60,6 +63,16 @@ function createWindow(): BrowserWindow {
     },
   });
   win = window;
+  window.webContents.on('render-process-gone', (_event, details) => {
+    writeLog(`[renderer] Prozess beendet: ${details.reason} (Code ${details.exitCode})`);
+    if (details.reason !== 'clean-exit' && !window.isDestroyed()) window.webContents.reload();
+  });
+  window.webContents.on('unresponsive', () => writeLog('[renderer] reagiert nicht'));
+  window.webContents.on('responsive', () => writeLog('[renderer] reagiert wieder'));
+  window.webContents.on('did-fail-load', (_event, code, description, url) => writeLog(`[renderer] Laden fehlgeschlagen: ${description} (${code}) ${url}`));
+  window.webContents.on('console-message', (event) => {
+    if (event.level === 'error') writeLog(`[renderer] ${event.message}`);
+  });
 
   void window.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -105,6 +118,17 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+function writeLog(line: string): void {
+  try {
+    const file = path.join(app.getPath('userData'), 'feather.log');
+    if (fs.existsSync(file) && fs.statSync(file).size > 1_000_000) fs.rmSync(file, { force: true });
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}
+`);
+  } catch {
+    return;
+  }
+}
+
 function showWindow(): void {
   const window = win ?? createWindow();
   if (window.isMinimized()) window.restore();
@@ -131,6 +155,7 @@ function registerIpc(): void {
   ipcMain.handle('settings:get', () => settings.get());
   ipcMain.handle('settings:set', (_event, patch: Partial<Settings>) => {
     const next = settings.set(patch ?? {});
+    languages.clearCache();
     saveeye.configure(next.saveeye);
     tray?.refresh();
     return next;
@@ -173,6 +198,55 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  });
+  const reply = async <T>(work: () => T | Promise<T>): Promise<{ ok: boolean; result?: T; error?: string }> => {
+    try {
+      return { ok: true, result: await work() };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  };
+  ipcMain.on('log:renderer', (_event, text: unknown) => writeLog(`[renderer] ${String(text).slice(0, 4000)}`));
+  ipcMain.handle('languages:list', () => reply(() => languages.list()));
+  ipcMain.handle('languages:pack', (_event, code: unknown) => reply(() => languages.pack(String(code ?? ''))));
+  ipcMain.handle('languages:folder', () => {
+    fs.mkdirSync(languages.dir(), { recursive: true });
+    return languages.dir();
+  });
+  ipcMain.handle('languages:import', async () => {
+    const res = await openDialog({ title: 'Sprachdatei auswählen', filters: [{ name: 'Feather-Sprachdatei', extensions: ['featherlang', 'json'] }], properties: ['openFile'] });
+    if (res.canceled || !res.filePaths[0]) return { ok: true, result: null };
+    const source = res.filePaths[0];
+    return reply(() => {
+      const out = languages.importFile(source);
+      tray?.refresh();
+      return out;
+    });
+  });
+  ipcMain.handle('languages:remove', (_event, code: unknown) =>
+    reply(() => {
+      languages.remove(String(code ?? ''));
+      if (settings.get().language === code) settings.set({ language: 'en' });
+      tray?.refresh();
+      return null;
+    }),
+  );
+  ipcMain.handle('languages:template', async (_event, meta: { code?: unknown; name?: unknown; author?: unknown }) => {
+    try {
+      cleanMeta(meta ?? {});
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+    const code = String(meta.code).trim().toLowerCase();
+    const options = {
+      title: 'Übersetzungsvorlage speichern',
+      defaultPath: path.join(app.getPath('documents'), `feather-${code || 'sprache'}.featherlang`),
+      filters: [{ name: 'Feather-Sprachdatei', extensions: ['featherlang'] }],
+    };
+    const res = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (res.canceled || !res.filePath) return { ok: true, result: null };
+    const file = res.filePath;
+    return reply(() => ({ file, total: languages.writeTemplate(file, meta) }));
   });
   ipcMain.handle('plugins:sample', () => {
     const sample = path.join(__dirname, '..', '..', 'plugins-dist', 'rainbow-icons.jar');
@@ -343,7 +417,7 @@ app.on('before-quit', (event) => {
   quitting = true;
   saveeye.stop();
   remote?.shutdown();
-  void core.shutdown().finally(() => {
+  void sqlhistory.flush().then(() => core.shutdown()).finally(() => {
     tray?.destroy();
     app.quit();
   });

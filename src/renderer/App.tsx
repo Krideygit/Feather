@@ -170,7 +170,7 @@ export function App() {
   }, [settings.theme, settings.themes]);
 
   useEffect(() => {
-    applyLanguage(settings.language);
+    void applyLanguage(settings.language);
   }, [settings.language]);
 
   useEffect(() => {

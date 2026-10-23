@@ -1,13 +1,14 @@
-import { Archive, Check, EyeOff, FolderOpen, Info, Loader2, PackagePlus, Puzzle, RotateCcw, ShieldAlert, Trash2, Upload } from 'lucide-react';
+import { Archive, Check, EyeOff, FolderOpen, Info, Languages, Loader2, PackagePlus, Puzzle, RotateCcw, ShieldAlert, Trash2, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { BackupInfoView, BackupResultView, Language, RestoreReportView } from '../../shared/types';
+import type { BackupInfoView, BackupResultView, LanguageInfo, RestoreReportView } from '../../shared/types';
 import { Notice } from '../components/Bits';
 import { Field, PasswordInput, Toggle } from '../components/Form';
-import { confirmDialog } from '../components/Layers';
+import { Modal, confirmDialog, openLayer } from '../components/Layers';
 import { toast } from '../components/Toast';
 import { call, refreshProfiles, refreshRuntimes, refreshServices } from '../lib/api';
 import { formatBytes } from '../lib/format';
 import { loadSqlConnections } from '../lib/creds';
+import { clearHistory, historyStats } from '../lib/sqlhistory';
 import { installPlugin, refreshPlugins, removePlugin, setPluginEnabled, usePlugins } from '../lib/plugins';
 import { loadHosts } from '../lib/remote';
 import { testSaveeye } from '../lib/saveeye';
@@ -16,32 +17,144 @@ import { setState, useAppState } from '../lib/store';
 
 const fail = (err: unknown): void => toast(err instanceof Error ? err.message : String(err), 'error');
 
+function TemplateDialog({ onClose }: { onClose: () => void }) {
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [author, setAuthor] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(): Promise<void> {
+    setBusy(true);
+    const reply = await window.feather.languageTemplate({ code, name, author });
+    setBusy(false);
+    if (!reply.ok) return fail(new Error(reply.error));
+    if (!reply.result) return;
+    toast(`Vorlage mit ${reply.result.total} Texten gespeichert.`, 'success');
+    void window.feather.showItem(reply.result.file);
+    onClose();
+  }
+
+  return (
+    <Modal title="Übersetzungsvorlage speichern" subtitle="Diese Datei kannst du jemandem schicken, der sie übersetzt" size="max-w-md" onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Abbrechen</button><button className="btn btn-primary" disabled={busy || !code.trim() || !name.trim()} onClick={() => void submit()} data-action="lang-template-save">Speichern</button></>}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-[110px_1fr] gap-4">
+          <Field label="Sprachcode" hint="z. B. tr, fr, pt-br">
+            <input className="input font-mono" value={code} spellCheck={false} maxLength={8} onChange={(e) => setCode(e.target.value)} data-bind="lang-code" />
+          </Field>
+          <Field label="Name der Sprache" hint="So, wie er in der Liste stehen soll, z. B. Türkçe.">
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} data-bind="lang-name" />
+          </Field>
+        </div>
+        <Field label="Übersetzt von" hint="Optional, z. B. dein Name.">
+          <input className="input" value={author} onChange={(e) => setAuthor(e.target.value)} data-bind="lang-author" />
+        </Field>
+        <p className="text-xs text-neutral-500">Die Datei enthält alle Texte mit englischer Vorlage. Jede Zeile, die nicht übersetzt wird, bleibt Englisch. Existiert die Sprache schon, bekommst du ihre aktuelle Übersetzung zum Weiterbearbeiten.</p>
+      </div>
+    </Modal>
+  );
+}
+
 export function LanguageSection() {
   const language = useAppState((s) => s.settings.language);
-  const options: { id: Language; label: string; native: string }[] = [
-    { id: 'de', label: 'Deutsch', native: 'Standardsprache' },
-    { id: 'en', label: 'English', native: 'English' },
-  ];
+  const [languages, setLanguages] = useState<LanguageInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  async function load(): Promise<void> {
+    const reply = await window.feather.languagesList();
+    if (!reply.ok) return fail(new Error(reply.error));
+    setLanguages(reply.result ?? []);
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function importPack(): Promise<void> {
+    setBusy(true);
+    const reply = await window.feather.languageImport();
+    setBusy(false);
+    if (!reply.ok) return fail(new Error(reply.error));
+    if (!reply.result) return;
+    const { info, skipped, replaced } = reply.result;
+    toast(`„${info.name}“ ${replaced ? 'wurde aktualisiert' : 'wurde hinzugefügt'}${skipped ? ` (${skipped} unpassende Einträge übersprungen)` : ''}.`, 'success');
+    await load();
+    if (language === info.code) await updateSettings({ language: info.code });
+  }
+
+  async function remove(info: LanguageInfo): Promise<void> {
+    const ok = await confirmDialog({ title: `„${info.name}“ entfernen?`, message: 'Das Sprachpaket wird gelöscht. Ist es gerade aktiv, wechselt Feather auf Englisch.', confirmLabel: 'Entfernen', danger: true });
+    if (!ok) return;
+    const reply = await window.feather.languageRemove(info.code);
+    if (!reply.ok) return fail(new Error(reply.error));
+    setState({ settings: await window.feather.getSettings() });
+    await load();
+  }
+
+  const known = languages.some((l) => l.code === language);
+
   return (
-    <div className="space-y-4 animate-fade-in" data-section="language">
-      <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] max-w-xl">
-        {options.map((o) => (
-          <button
-            key={o.id}
-            className={`card card-hover p-4 text-left flex items-center gap-3 ${language === o.id ? 'border-primary! ring-1 ring-primary/40' : ''}`}
-            onClick={() => void updateSettings({ language: o.id })}
-            aria-pressed={language === o.id}
-            data-lang={o.id}
+    <div className="space-y-5 animate-fade-in" data-section="language">
+      <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(240px,1fr))] max-w-3xl">
+        {languages.map((o) => (
+          <div
+            key={o.code}
+            role="button"
+            tabIndex={0}
+            className={`card card-hover p-4 text-left flex items-center gap-3 cursor-pointer ${language === o.code ? 'border-primary! ring-1 ring-primary/40' : ''}`}
+            onClick={() => void updateSettings({ language: o.code })}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && void updateSettings({ language: o.code })}
+            aria-pressed={language === o.code}
+            data-lang={o.code}
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-neutral-100">{o.label}</p>
-              <p className="text-xs text-neutral-500">{o.native}</p>
+              <p className="text-sm font-medium text-neutral-100 truncate" data-notranslate>{o.name}</p>
+              <p className="text-xs text-neutral-500 truncate">
+                {o.code === 'de' ? (
+                  'Standardsprache'
+                ) : o.code === 'en' ? (
+                  'Fallback für fehlende Texte'
+                ) : (
+                  <>
+                    {o.author ? <span data-notranslate>{o.author}</span> : <span>Unbekannt</span>}
+                    <span data-notranslate>{` · v${o.version} · ${Math.ceil((o.translated / Math.max(1, o.total)) * 100)} %`}</span>
+                  </>
+                )}
+              </p>
             </div>
-            {language === o.id && <Check className="size-4 text-primary" />}
-          </button>
+            {language === o.code && <Check className="size-4 text-primary" />}
+            {!o.builtin && (
+              <button className="btn btn-ghost btn-icon btn-sm text-neutral-500 hover:text-red-400" aria-label={`${o.name} entfernen`} onClick={(e) => { e.stopPropagation(); void remove(o); }} data-action="lang-remove">
+                <Trash2 className="size-4" />
+              </button>
+            )}
+          </div>
         ))}
       </div>
-      <p className="text-xs text-neutral-500 max-w-xl">Die Sprache wird sofort umgestellt. Texte, die Plugins oder dein Server liefern, bleiben in ihrer Originalsprache.</p>
+      {!known && languages.length > 0 && <Notice tone="warn">Das Sprachpaket „{language}“ wurde nicht gefunden. Feather zeigt Englisch.</Notice>}
+      <div className="flex flex-wrap gap-2">
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => void importPack()} data-action="lang-import">
+          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+          Sprachdatei importieren
+        </button>
+        <button className="btn btn-outline btn-sm" onClick={() => openLayer((close) => <TemplateDialog onClose={close} />)} data-action="lang-template">
+          <Languages className="size-3.5" />
+          Vorlage für Übersetzer
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => void window.feather.languagesFolder().then((dir) => window.feather.openPath(dir))} data-action="lang-folder">
+          <FolderOpen className="size-3.5" />
+          Ordner öffnen
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => void load()}>
+          <RotateCcw className="size-3.5" />
+          Aktualisieren
+        </button>
+      </div>
+      <div className="max-w-3xl rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 space-y-2 text-xs text-neutral-500">
+        <p className="text-sm font-medium text-neutral-200">Eigene Sprache hinzufügen</p>
+        <p>1. Speichere über „Vorlage für Übersetzer“ eine Datei und schicke sie deinem Übersetzer. Er ändert nur die Texte rechts vom Doppelpunkt.</p>
+        <p>2. Die fertige Datei importierst du hier oder legst sie in den Ordner (Endung .featherlang). Danach erscheint sie in der Liste.</p>
+        <p>3. Texte ohne Übersetzung zeigt Feather auf Englisch. Die Sprache wird sofort umgestellt. Texte von Plugins und deinem Server bleiben im Original.</p>
+      </div>
     </div>
   );
 }
@@ -87,6 +200,59 @@ export function SaveeyeSection() {
         </div>
       </div>
       <Notice tone="info">Windows meldet Programmen nicht jede Aufnahme. Feather erkennt Übertragungen von Programmen, die die Windows-Bildschirmaufnahme nutzen (u. a. Discord, OBS, Teams, Zoom), sowie die Druck-Taste. Für lückenlosen Schutz wähle „Immer geschützt“.</Notice>
+    </div>
+  );
+}
+
+export function DatabaseSection() {
+  const config = useAppState((s) => s.settings.database);
+  const [stats, setStats] = useState<{ entries: number; bytes: number } | null>(null);
+  const set = (patch: Partial<typeof config>): void => void updateSettings({ database: { ...config, ...patch } });
+
+  async function load(): Promise<void> {
+    try {
+      setStats(await historyStats());
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function clearAll(): Promise<void> {
+    const ok = await confirmDialog({ title: 'Gesamten Änderungsverlauf löschen?', message: 'Alle aufgezeichneten Vorher-Werte und gesicherten Zeilen aus allen Datenbanken werden aus Feather entfernt. Die Daten in den Datenbanken bleiben unverändert.', confirmLabel: 'Löschen', danger: true });
+    if (!ok) return;
+    try {
+      const removed = await clearHistory();
+      toast(`${removed} Einträge gelöscht.`, 'success');
+      await load();
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-xl animate-fade-in" data-section="database">
+      <div>
+        <h3 className="text-sm font-semibold text-neutral-100 mb-3">Hilfen</h3>
+        <div className="space-y-5">
+          <Toggle checked={config.history} onChange={(history) => set({ history })} label="Änderungsverlauf" description="Feather merkt sich, was vorher in einer Zelle stand. Willst du den Wert später wieder ändern, steht in Rot darunter, wie er früher hieß, und du kannst ihn mit einem Klick zurückholen." />
+          <Toggle checked={config.keepDeleted} onChange={(keepDeleted) => set({ keepDeleted })} label="Gelöschte Zeilen sichern" description="Löschst du Zeilen in der Tabellenansicht, sichert Feather sie vorher. Im Verlauf der Tabelle stellst du sie wieder her." />
+        </div>
+      </div>
+      <Notice tone="info">Aufgezeichnet werden nur Änderungen, die du in der Tabellenansicht machst, nicht eigene SQL-Abfragen. Der Verlauf liegt verschlüsselt auf diesem Rechner und enthält Kopien deiner Daten. Schalte die Funktion bei sensiblen Tabellen aus.</Notice>
+      <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-neutral-100">Gespeicherter Verlauf</p>
+          <p className="text-xs text-neutral-500" data-history-stats>{stats ? `${stats.entries} ${stats.entries === 1 ? 'Eintrag' : 'Einträge'} · ${formatBytes(stats.bytes)}` : 'Wird geladen …'}</p>
+        </div>
+        <button className="btn btn-outline btn-sm text-red-300" disabled={!stats || stats.entries === 0} onClick={() => void clearAll()} data-action="history-clear-all">
+          <Trash2 className="size-3.5" />
+          Alles löschen
+        </button>
+      </div>
     </div>
   );
 }

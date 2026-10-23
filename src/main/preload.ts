@@ -73,6 +73,13 @@ const bridge: FeatherBridge = {
   backupPick: () => ipcRenderer.invoke('backup:pick'),
   backupRestore: (options) => ipcRenderer.invoke('backup:restore', options),
   pluginSample: () => ipcRenderer.invoke('plugins:sample'),
+  languagesList: () => ipcRenderer.invoke('languages:list'),
+  languagePack: (code) => ipcRenderer.invoke('languages:pack', code),
+  languageImport: () => ipcRenderer.invoke('languages:import'),
+  languageRemove: (code) => ipcRenderer.invoke('languages:remove', code),
+  languageTemplate: (meta) => ipcRenderer.invoke('languages:template', meta),
+  languagesFolder: () => ipcRenderer.invoke('languages:folder'),
+  logRenderer: (text) => ipcRenderer.send('log:renderer', text),
 };
 
 contextBridge.exposeInMainWorld('feather', bridge);

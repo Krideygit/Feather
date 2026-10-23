@@ -1,13 +1,15 @@
 import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Language, SaveeyeSettings, Settings, Theme } from '../shared/types';
+import { LANG_CODE } from '../shared/langpack';
+import type { DatabaseSettings, SaveeyeSettings, Settings, Theme } from '../shared/types';
 
 export const DEFAULTS: Settings = {
   runInBackground: true,
   theme: 'feather-dark',
   themes: [],
   language: 'de',
+  database: { history: true, keepDeleted: true },
   saveeye: { enabled: false, mode: 'ask', blurOnBlur: false },
 };
 
@@ -37,6 +39,14 @@ function cleanSaveeye(raw: unknown, base: SaveeyeSettings): SaveeyeSettings {
   };
 }
 
+function cleanDatabase(raw: unknown, base: DatabaseSettings): DatabaseSettings {
+  const s = (raw ?? {}) as Partial<DatabaseSettings>;
+  return {
+    history: typeof s.history === 'boolean' ? s.history : base.history,
+    keepDeleted: typeof s.keepDeleted === 'boolean' ? s.keepDeleted : base.keepDeleted,
+  };
+}
+
 function normalize(raw: Partial<Settings>, base: Settings): Settings {
   const themes = Array.isArray(raw.themes) ? raw.themes.map(cleanTheme).filter((t): t is Theme => t !== null).slice(0, 30) : base.themes;
   const theme = typeof raw.theme === 'string' && raw.theme ? raw.theme : base.theme;
@@ -44,8 +54,9 @@ function normalize(raw: Partial<Settings>, base: Settings): Settings {
     runInBackground: typeof raw.runInBackground === 'boolean' ? raw.runInBackground : base.runInBackground,
     theme,
     themes,
-    language: (raw.language === 'en' ? 'en' : raw.language === 'de' ? 'de' : base.language) as Language,
+    language: typeof raw.language === 'string' && LANG_CODE.test(raw.language) ? raw.language : base.language,
     saveeye: cleanSaveeye(raw.saveeye, base.saveeye),
+    database: cleanDatabase(raw.database, base.database),
   };
 }
 
@@ -53,7 +64,7 @@ export function get(): Settings {
   try {
     return normalize(JSON.parse(fs.readFileSync(file(), 'utf8')) as Partial<Settings>, DEFAULTS);
   } catch {
-    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye } };
+    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye }, database: { ...DEFAULTS.database } };
   }
 }
 
