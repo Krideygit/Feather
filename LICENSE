@@ -1,21 +1,151 @@
-MIT License
+Feather Source-Available License, Version 1.0
 
-Copyright (c) 2026 Kridey
+Copyright (c) 2026 Kridey. All rights reserved except as granted below.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This license applies to the software "Feather", its source code, documentation
+and release files (together, the "Software"). By installing, copying or using
+the Software you accept these terms. A German translation is provided in the
+file LICENSE.de.md for convenience. If the two versions differ, the English
+version prevails.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. Definitions
+
+"Licensor" means Kridey, the copyright holder of the Software.
+
+"You" means the individual or legal entity exercising rights under this
+license.
+
+"Modified Version" means any work that contains or is derived from the
+Software or a substantial part of it, including modified, translated,
+repackaged or recompiled versions.
+
+"Plugin" means a separate work that interacts with the Software only through
+the plugin interface documented in the Software (the Java package
+"feather.api" and the plugin manifest) and that does not contain any part of
+the Software other than the interface definitions needed to compile against
+it. Language packs in the documented ".featherlang" format are Plugins.
+
+"Public Distribution" means making the Software or a Modified Version
+available to anyone outside Your own organization or household, whether for
+free or for a fee, by any means, including websites, source code
+repositories, package registries, app stores, file-sharing services, mirrors,
+physical media, and forks that are visible to third parties.
+
+
+2. Grant of rights
+
+Subject to these terms, the Licensor grants You a worldwide, non-exclusive,
+non-transferable, revocable license, free of charge, to
+
+a) install and use the Software on any number of devices that You own or
+   control, for any purpose, including commercial purposes;
+
+b) read, study and modify the source code and create Modified Versions for
+   Your own use;
+
+c) make copies of the Software and Modified Versions for backup purposes and
+   for use by members of Your own organization or household;
+
+d) create, publish and distribute Plugins as described in section 3.
+
+Use of the Software is free. The Licensor does not charge a fee for the
+rights granted in this section.
+
+
+3. Plugins
+
+You may create Plugins and publish, distribute and sell them under any
+license of Your choice. A Plugin is not a Modified Version. Section 4 does not
+apply to a Plugin. You must not include in a Plugin any part of the Software
+other than the interface definitions, and You must not distribute the Software
+together with a Plugin.
+
+You may state that a Plugin is compatible with Feather.
+
+
+4. Restrictions
+
+You must not
+
+a) engage in Public Distribution of the Software or of a Modified Version.
+   Linking to the official download location of the Software is permitted;
+
+b) sell, rent, lease, sublicense or otherwise commercialize the Software or a
+   Modified Version, or offer them as a service to third parties;
+
+c) present the Software or a Modified Version as the original or official
+   Feather, as Your own work, or in a way that suggests the Licensor
+   endorses, supports or is affiliated with it. A Modified Version must not
+   use the name "Feather" or the Feather logo as its own name or logo;
+
+d) remove or alter copyright notices, license notices or this license from the
+   Software, or remove the notice that identifies the Licensor as the author;
+
+e) use the Software or its name in a way that is unlawful or that damages the
+   reputation of the Licensor.
+
+Any use that is not expressly allowed by this license requires the Licensor's
+prior written permission. The Licensor may grant such permission separately
+and at any time.
+
+
+5. Trademarks
+
+The name "Feather" and the Feather logo are not licensed under this license.
+Section 3 does not grant the right to use them as the name of a product, apart
+from the compatibility statement in section 3.
+
+
+6. Third-party components
+
+The Software contains or downloads components from third parties, for example
+Electron, React, the OpenJDK runtime and database drivers. These components
+are licensed under their own terms. Nothing in this license restricts the
+rights You have under those terms, and nothing in those terms extends the
+rights granted here for the Software itself.
+
+
+7. Contributions
+
+If You send the Licensor a contribution to the Software, such as a patch or a
+pull request, You grant the Licensor a perpetual, worldwide, irrevocable,
+royalty-free license to use, modify, publish and sublicense the contribution
+as part of the Software under any license, and You confirm that You are
+entitled to grant this license. This does not apply to Plugins.
+
+
+8. Warranty and liability
+
+The Software is provided "as is", without warranty of any kind, express or
+implied, including the warranties of merchantability, fitness for a particular
+purpose and non-infringement. To the extent permitted by applicable law, the
+Licensor is not liable for any damages arising from the use of or inability to
+use the Software, including loss of data.
+
+Mandatory statutory liability, in particular for intent, gross negligence,
+injury to life, body or health, and under the Product Liability Act, remains
+unaffected.
+
+
+9. Termination
+
+This license ends automatically if You breach any of its terms. After
+termination You must stop using the Software, delete all copies and Modified
+Versions, and stop any Public Distribution. Rights of the Licensor arising
+from the breach remain unaffected. Sections 5, 8 and 10 survive termination.
+
+
+10. General
+
+Each version of the Software is licensed under the terms that accompany it.
+The Licensor may release later versions under different terms. This does not
+affect rights You have already acquired for earlier versions.
+
+If a provision of this license is or becomes invalid, the remaining
+provisions remain valid.
+
+This license is governed by the laws of the Federal Republic of Germany,
+excluding the UN Convention on Contracts for the International Sale of Goods
+and the conflict-of-law rules. Mandatory consumer protection rules of the
+country in which a consumer has their habitual residence remain unaffected.

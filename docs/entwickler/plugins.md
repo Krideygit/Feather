@@ -118,6 +118,10 @@ Handler für Klicks und Ereignisse rufen den Plugin-Code auf einem Thread des Ja
 
 Für den Entwicklungszyklus genügt es, die neue `.jar` erneut hochzuladen. Feather ersetzt das vorhandene Plugin und stellt bei einem Fehler beim Start die vorherige Version wieder her.
 
+## Lizenz von Plugins
+
+Die [Feather-Lizenz](../../LICENSE.de.md) erlaubt, Plugins unter jeder beliebigen Lizenz zu veröffentlichen, zu verbreiten und zu verkaufen. Voraussetzung ist, dass das Plugin nur über `feather.api` mit Feather zusammenarbeitet und keinen Code von Feather enthält. Feather selbst darf nicht mit dem Plugin zusammen verbreitet werden.
+
 ## Sicherheit
 
 Ein Plugin läuft mit den vollen Rechten des Benutzers, der Feather gestartet hat. Es gibt keine Sandbox. Veröffentliche Plugins deshalb mit Quellcode, und beschreibe, was sie tun. Anwender sollten nur Plugins aus Quellen installieren, denen sie vertrauen.

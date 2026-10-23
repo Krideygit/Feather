@@ -30,6 +30,10 @@ Feather trennt Programmdaten von persönlichen Einstellungen.
 
 Passwörter und Schlüssel in `%APPDATA%\Feather®` sind mit dem Windows-Benutzerkonto verschlüsselt. Die Dateien lassen sich daher nicht auf einen anderen Rechner kopieren. Für den Umzug dient die [Sicherung](einstellungen.md#sicherung).
 
+## Lizenz
+
+Feather ist kostenlos nutzbar, privat und beruflich. Die [Lizenz](../../LICENSE.de.md) erlaubt, Feather zu erweitern und zu verändern. Plugins darfst du frei veröffentlichen und verkaufen. Nicht erlaubt ist die öffentliche Weitergabe von Feather oder veränderten Versionen sowie das Ausgeben als Original. Verbindlich ist die englische Fassung in der Datei `LICENSE`. Der Installer zeigt sie vor der Installation an.
+
 ## Aktualisieren
 
 Starte den neuen Installer. Er ersetzt das Programm und lässt alle Daten unverändert.

@@ -50,3 +50,7 @@ Erste öffentliche Version.
 ### Installer
 
 - Installer für Windows 10 und 11 mit mitgelieferter Java-Laufzeit
+
+### Lizenz
+
+- Feather Source-Available License 1.0: kostenlos nutzbar, Erweiterungen und Plugins erlaubt, keine öffentliche Weitergabe von Feather oder veränderten Versionen

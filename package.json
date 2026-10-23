@@ -5,7 +5,7 @@
   "description": "Lokale Services, Server-Terminal, Dateiverwaltung und SQL-Client in einer Anwendung.",
   "main": "dist/main/main.js",
   "author": "Kridey",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
     "build:core": "node scripts/build-core.js",
@@ -73,6 +73,14 @@
       {
         "from": "plugins-dist/rainbow-icons.jar",
         "to": "plugins/rainbow-icons.jar"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "LICENSE.de.md",
+        "to": "LICENSE.de.md"
       }
     ],
     "win": {
@@ -91,7 +99,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "license": "LICENSE"
     },
     "copyright": "Copyright (c) 2026 Kridey"
   },

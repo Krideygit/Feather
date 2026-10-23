@@ -118,6 +118,10 @@ Handlers for clicks and events call plugin code on a thread of the Java core. Do
 
 During development it is enough to upload the new `.jar` again. Feather replaces the existing plugin and restores the previous version if startup fails.
 
+## Plugin licensing
+
+The [Feather license](../../../LICENSE) allows you to publish, distribute and sell plugins under any license you choose. The condition is that the plugin interacts with Feather only through `feather.api` and contains no Feather code. You must not distribute Feather itself together with the plugin.
+
 ## Security
 
 A plugin runs with the full rights of the user who started Feather. There is no sandbox. Publish plugins with their source code and describe what they do. Users should only install plugins from sources they trust.
