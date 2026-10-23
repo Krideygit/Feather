@@ -13,12 +13,14 @@ import {
 } from '../../shared/remote';
 import { toast } from '../components/Toast';
 import { askPassword, confirmHostKey } from '../remote/prompts';
+import { forgetSession } from './modules';
 
 export type SessionView = SessionInfo & {
   status: 'ready' | 'closed';
   reason: string;
   shell: 'idle' | 'running' | 'exited';
   transfers: Transfer[];
+  filesTarget: { path: string; nonce: number } | null;
 };
 
 export interface Pending {
@@ -45,6 +47,17 @@ const subscribe = (listener: () => void): (() => void) => {
 };
 
 export const getRemote = (): RemoteState => state;
+
+type SessionListener = (name: string, data: Record<string, unknown>) => void;
+const sessionListeners = new Set<SessionListener>();
+
+export function onSessionEvent(listener: SessionListener): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+const emitSession = (name: string, info: Pick<SessionInfo, 'sid' | 'name' | 'host' | 'port' | 'username' | 'protocol'>): void =>
+  sessionListeners.forEach((l) => l(name, { sid: info.sid, name: info.name, host: info.host, port: info.port, username: info.username, protocol: info.protocol }));
 
 function setRemote(patch: Partial<RemoteState> | ((s: RemoteState) => Partial<RemoteState>)): void {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
@@ -103,8 +116,9 @@ export interface ConnectSource {
 }
 
 function addSession(info: SessionInfo): void {
-  const view: SessionView = { ...info, status: 'ready', reason: '', shell: 'idle', transfers: [] };
+  const view: SessionView = { ...info, status: 'ready', reason: '', shell: 'idle', transfers: [], filesTarget: null };
   setRemote((s) => ({ sessions: [...s.sessions.filter((x) => x.sid !== info.sid), view], active: info.sid }));
+  emitSession('session.opened', info);
 }
 
 export async function connect(source: ConnectSource): Promise<boolean> {
@@ -191,6 +205,8 @@ export async function reconnect(sid: string): Promise<void> {
 }
 
 export async function closeSession(sid: string): Promise<void> {
+  const closing = getRemote().sessions.find((s) => s.sid === sid);
+  if (closing) emitSession('session.closed', closing);
   const terminal = terminals.get(sid);
   if (terminal) {
     terminal.term.dispose();
@@ -200,8 +216,11 @@ export async function closeSession(sid: string): Promise<void> {
     const sessions = s.sessions.filter((x) => x.sid !== sid);
     return { sessions, active: s.active === sid ? 'home' : s.active };
   });
+  forgetSession(sid);
   await callRemote('session.close', { sid }).catch(() => undefined);
 }
+
+export const showInFiles = (sid: string, path: string): void => patchSession(sid, { filesTarget: { path, nonce: Date.now() } });
 
 export interface TerminalEntry {
   term: Terminal;

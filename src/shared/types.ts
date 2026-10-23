@@ -77,8 +77,29 @@ export interface AppInfo {
   windows: boolean;
 }
 
+export type Language = 'de' | 'en';
+
+export interface Theme {
+  id: string;
+  name: string;
+  mode: 'dark' | 'light';
+  accent: string;
+  hue: number;
+  saturation: number;
+}
+
+export interface SaveeyeSettings {
+  enabled: boolean;
+  mode: 'ask' | 'always';
+  blurOnBlur: boolean;
+}
+
 export interface Settings {
   runInBackground: boolean;
+  theme: string;
+  themes: Theme[];
+  language: Language;
+  saveeye: SaveeyeSettings;
 }
 
 export interface DbInfo {
@@ -201,4 +222,50 @@ export interface FeatherBridge {
   remoteSend(method: string, params: object): void;
   onRemoteEvent(callback: (name: string, data: unknown) => void): () => void;
   pathForFile(file: File): string;
+
+  onSaveeyeCapture(callback: (notice: { active: boolean; sources: string[]; transient: boolean }) => void): () => void;
+  onWindowFocus(callback: (focused: boolean) => void): () => void;
+  saveeyeAnswer(allow: boolean): void;
+  setTitleBar(color: string, symbol: string): void;
+  backupCreate(options: { password: string; includeData: boolean }): Promise<BridgeReply<BackupResultView | null>>;
+  backupPick(): Promise<BridgeReply<{ file: string; info: BackupInfoView } | null>>;
+  backupRestore(options: { file: string; password: string }): Promise<BridgeReply<RestoreReportView>>;
+  pluginSample(): Promise<string | null>;
+}
+
+export interface BridgeReply<T> {
+  ok: boolean;
+  result?: T;
+  error?: string;
+}
+
+export interface BackupResultView {
+  file: string;
+  bytes: number;
+  profiles: number;
+  hosts: number;
+  connections: number;
+  plugins: number;
+  encrypted: boolean;
+}
+
+export interface BackupInfoView {
+  createdAt: number;
+  appVersion: string;
+  profiles: string[];
+  hosts: number;
+  connections: number;
+  plugins: number;
+  encrypted: boolean;
+  includesData: boolean;
+}
+
+export interface RestoreReportView {
+  settings: boolean;
+  hosts: number;
+  connections: number;
+  plugins: number;
+  profiles: number;
+  skippedSecrets: boolean;
+  warnings: string[];
 }

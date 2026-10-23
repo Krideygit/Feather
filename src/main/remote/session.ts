@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import { StringDecoder } from 'node:string_decoder';
 import { Client as SshClient, utils, type ClientChannel, type ConnectConfig } from 'ssh2';
+import type { SystemInfo } from '../../shared/modules';
 import { RemoteError, type RemoteEvents } from '../../shared/remote';
 import { FtpFs, SftpFs, type RemoteFs } from './backends';
 import { friendly } from './errors';
@@ -13,14 +15,25 @@ const fingerprintOf = (key: Buffer): string => `SHA256:${crypto.createHash('sha2
 
 const agentSocket = (): string | undefined => (process.platform === 'win32' ? '\\\\.\\pipe\\openssh-ssh-agent' : process.env.SSH_AUTH_SOCK);
 
+export interface ExecResult {
+  code: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+const OUTPUT_LIMIT = 2 * 1024 * 1024;
+
 export class Session {
   fs: RemoteFs | null = null;
+  sys: SystemInfo | null = null;
+  sudoPassword = '';
   fingerprint: string | null = null;
   filesError: string | null = null;
   open = false;
   private ssh: SshClient | null = null;
   private shell: ClientChannel | null = null;
   private closing = false;
+  private readonly tunnels = new Map<string, { server: net.Server; port: number }>();
 
   constructor(
     readonly sid: string,
@@ -159,6 +172,60 @@ export class Session {
     });
   }
 
+  exec(command: string, options: { stdin?: string; onData?: (text: string) => void } = {}): Promise<ExecResult> {
+    const client = this.ssh;
+    if (!client || !this.open) return Promise.reject(new RemoteError('Die Verbindung wurde getrennt.'));
+    return new Promise((resolve, reject) => {
+      client.exec(command, (err, stream) => {
+        if (err) return reject(friendly(err));
+        let stdout = '';
+        let stderr = '';
+        const out = new StringDecoder('utf8');
+        const errOut = new StringDecoder('utf8');
+        stream.on('data', (chunk: Buffer) => {
+          const text = out.write(chunk);
+          if (stdout.length < OUTPUT_LIMIT) stdout += text;
+          options.onData?.(text);
+        });
+        stream.stderr.on('data', (chunk: Buffer) => {
+          const text = errOut.write(chunk);
+          if (stderr.length < OUTPUT_LIMIT) stderr += text;
+          options.onData?.(text);
+        });
+        stream.on('close', (code: number | null) => resolve({ code, stdout, stderr }));
+        stream.end(options.stdin ?? '');
+      });
+    });
+  }
+
+  async tunnel(destHost: string, destPort: number): Promise<number> {
+    const client = this.ssh;
+    if (!client || !this.open) throw new RemoteError('Die Verbindung wurde getrennt.');
+    const key = `${destHost}:${destPort}`;
+    const known = this.tunnels.get(key);
+    if (known) return known.port;
+    const server = net.createServer((socket) => {
+      client.forwardOut('127.0.0.1', socket.remotePort ?? 0, destHost, destPort, (err, stream) => {
+        if (err) return void socket.destroy();
+        socket.pipe(stream).pipe(socket);
+        const close = (): void => {
+          socket.destroy();
+          stream.destroy();
+        };
+        socket.on('error', close);
+        stream.on('error', close);
+        socket.on('close', close);
+        stream.on('close', close);
+      });
+    });
+    const port = await new Promise<number>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => resolve((server.address() as net.AddressInfo).port));
+    });
+    this.tunnels.set(key, { server, port });
+    return port;
+  }
+
   write(data: string): void {
     this.shell?.write(data);
   }
@@ -175,6 +242,8 @@ export class Session {
   }
 
   private teardown(): void {
+    this.tunnels.forEach((t) => t.server.close());
+    this.tunnels.clear();
     this.fs?.close();
     this.fs = null;
     this.shell = null;

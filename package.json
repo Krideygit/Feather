@@ -16,7 +16,8 @@
     "dev": "node scripts/dev.js",
     "smoke": "node scripts/smoke-core.js",
     "dist": "npm run typecheck && npm run build && electron-builder",
-    "test": "node scripts/test-blueprint.js && node scripts/test-remote.js"
+    "test": "node scripts/test-blueprint.js && node scripts/test-remote.js && node scripts/test-modules.js && node scripts/test-backup.js && node scripts/test-saveeye.js && node scripts/test-i18n.js && node scripts/test-plugins.js",
+    "build:plugins": "node scripts/build-plugins.js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
@@ -24,6 +25,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/ssh2": "^1.15.6",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "electron": "^45.0.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
@@ -41,7 +44,9 @@
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "ssh2": "^1.17.0"
+    "ssh2": "^1.17.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "build": {
     "appId": "dev.feather.app",

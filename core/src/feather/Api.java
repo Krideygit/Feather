@@ -17,10 +17,12 @@ final class Api {
     private static final Set<String> SYSTEM_DBS = Set.of("information_schema", "mysql", "performance_schema", "sys");
 
     private final ServiceManager manager;
+    private final Plugins plugins;
     private final Map<String, Handler> handlers = new HashMap<>();
 
-    Api(ServiceManager manager, Profiles profiles) {
+    Api(ServiceManager manager, Profiles profiles, Plugins plugins) {
         this.manager = manager;
+        this.plugins = plugins;
 
         on("app.info", p -> Json.obj(
                 "home", Home.root().toString(),
@@ -116,6 +118,25 @@ final class Api {
 
         on("db.query", p -> Sql.run(runningDatabase(str(p, "id")), p.get("database") == null ? null : String.valueOf(p.get("database")), str(p, "sql")));
         on("db.schema", p -> Sql.schema(runningDatabase(str(p, "id")), str(p, "database")));
+        on("sql.query", p -> Sql.run(target(p), p.get("database") == null ? null : String.valueOf(p.get("database")), str(p, "sql")));
+        on("sql.schema", p -> Sql.schema(target(p), str(p, "database")));
+
+        on("plugin.list", p -> plugins.list());
+        on("plugin.contributions", p -> plugins.contributions());
+        on("plugin.install", p -> plugins.install(java.nio.file.Path.of(str(p, "file"))));
+        on("plugin.setEnabled", p -> plugins.setEnabled(str(p, "id"), Boolean.TRUE.equals(p.get("enabled"))));
+        on("plugin.remove", p -> {
+            plugins.remove(str(p, "id"));
+            return Json.obj("ok", true);
+        });
+        on("plugin.event", p -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = p.get("data") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+            plugins.dispatch(str(p, "name"), data);
+            return Json.obj("ok", true);
+        });
+        on("plugin.dir", p -> Json.obj("dir", Plugins.dir().toString()));
+
         on("db.users", p -> Sql.users(runningDatabase(str(p, "id"))));
         on("db.userGrants", p -> Sql.grants(runningDatabase(str(p, "id")), str(p, "user"), str(p, "host")));
         on("db.userCreate", p -> {
@@ -185,6 +206,21 @@ final class Api {
 
     private void on(String name, Handler h) {
         handlers.put(name, h);
+    }
+
+    private static final Pattern HOST = Pattern.compile("^[A-Za-z0-9_.:-]{1,253}$");
+
+    private Jdbc.Conn target(Map<String, Object> p) {
+        if (p.get("conn") instanceof Map<?, ?> c) {
+            String host = c.get("host") == null ? "127.0.0.1" : String.valueOf(c.get("host"));
+            if (!HOST.matcher(host).matches()) throw new IllegalArgumentException("Ungültiger Host.");
+            int port = c.get("port") instanceof Number n ? n.intValue() : 3306;
+            if (port < 1 || port > 65535) throw new IllegalArgumentException("Ungültiger Port.");
+            String user = c.get("user") == null ? "" : String.valueOf(c.get("user"));
+            if (user.isBlank()) throw new IllegalArgumentException("Bitte gib einen Benutzernamen an.");
+            return new Jdbc.Conn(host, port, user, c.get("password") == null ? "" : String.valueOf(c.get("password")));
+        }
+        return Jdbc.conn(runningDatabase(str(p, "id")));
     }
 
     private Service runningDatabase(String id) {

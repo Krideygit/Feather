@@ -1,3 +1,4 @@
+const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -6,7 +7,7 @@ const { Server, utils } = require('ssh2');
 const PASS = 'test-pass-123';
 const USER = 'tester';
 
-function startSshServer(serverRoot, hostKey, clientPublicKey) {
+function startSshServer(serverRoot, hostKey, clientPublicKey, options = {}) {
   const state = { window: null, shells: 0 };
   const clients = new Set();
   const abs = (p) => path.join(serverRoot, ...p.split('/').filter(Boolean));
@@ -26,6 +27,17 @@ function startSshServer(serverRoot, hostKey, clientPublicKey) {
       ctx.reject(['password', 'publickey']);
     });
     client.on('error', () => {});
+    client.on('tcpip', (accept, reject, info) => {
+      if (!options.forward) return reject();
+      const socket = require('node:net').connect(info.destPort, info.destIP);
+      socket.once('connect', () => {
+        const stream = accept();
+        state.forwarded = (state.forwarded || 0) + 1;
+        stream.pipe(socket).pipe(stream);
+        stream.on('close', () => socket.destroy());
+      });
+      socket.once('error', () => reject());
+    });
     client.on('ready', () => {
       client.on('session', (accept) => {
         const session = accept();
@@ -33,6 +45,22 @@ function startSshServer(serverRoot, hostKey, clientPublicKey) {
         session.on('window-change', (acc, _rej, info) => {
           state.window = info;
           acc && acc();
+        });
+        session.on('exec', (acc, rej, info) => {
+          if (!options.exec) return rej();
+          const stream = acc();
+          const child = spawn('sh', ['-c', info.command], { env: options.exec.env(), cwd: options.exec.cwd });
+          state.commands = state.commands || [];
+          state.commands.push(info.command);
+          state.maxCommand = Math.max(state.maxCommand || 0, info.command.length);
+          stream.pipe(child.stdin);
+          child.stdin.on('error', () => {});
+          child.stdout.on('data', (d) => stream.write(d));
+          child.stderr.on('data', (d) => stream.stderr.write(d));
+          child.on('close', (code) => {
+            stream.exit(code === null ? 1 : code);
+            stream.end();
+          });
         });
         session.on('shell', (acc) => {
           const stream = acc();
@@ -145,7 +173,14 @@ if (require.main === module) {
   const serverRoot = path.resolve(process.argv[2]);
   const portFile = process.argv[3];
   fs.mkdirSync(serverRoot, { recursive: true });
-  startSshServer(serverRoot, utils.generateKeyPairSync('ed25519').private, null).then(({ port }) => {
+  const options = { forward: true };
+  if (process.argv[4]) {
+    const fake = require('./fake-linux').createFakeLinux(path.resolve(process.argv[4]));
+    if (process.argv[5] === 'sudo') Object.assign(fake.settings, { uid: '1000', user: 'deploy', sudo: 'password' });
+    options.exec = { env: () => fake.env(), cwd: fake.root };
+    console.log('Simuliertes Linux in', fake.root);
+  }
+  startSshServer(serverRoot, utils.generateKeyPairSync('ed25519').private, null, options).then(({ port }) => {
     if (portFile) fs.writeFileSync(portFile, String(port));
     console.log('SSH-Testserver auf Port', port);
   });

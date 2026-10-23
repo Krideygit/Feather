@@ -29,6 +29,7 @@ function findJava(): string {
 
 function findJar(): string | undefined {
   const candidates = [
+    process.env.FEATHER_CORE_JAR,
     process.resourcesPath && path.join(process.resourcesPath, 'core', 'feather-core.jar'),
     path.join(__dirname, '..', '..', 'core', 'feather-core.jar'),
   ].filter((c): c is string => Boolean(c));

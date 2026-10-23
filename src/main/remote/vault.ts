@@ -37,12 +37,12 @@ function writeJson(file: string, data: unknown): void {
 
 export const canStoreSecrets = (): Promise<boolean> => safeStorage.isAsyncEncryptionAvailable();
 
-async function seal(value: string): Promise<string> {
+export async function seal(value: string): Promise<string> {
   if (!(await canStoreSecrets())) throw new Error('Auf diesem System ist keine sichere Passwort-Speicherung verfügbar. Lass das Feld leer, dann fragt Feather bei jeder Verbindung danach.');
   return (await safeStorage.encryptStringAsync(value)).toString('base64');
 }
 
-async function unseal(value: string | undefined): Promise<string> {
+export async function unseal(value: string | undefined): Promise<string> {
   if (!value) return '';
   try {
     return (await safeStorage.decryptStringAsync(Buffer.from(value, 'base64'))).result;
@@ -141,5 +141,61 @@ export const knownFingerprint = (host: string, port: number): string | undefined
 export function trustFingerprint(host: string, port: number, fingerprint: string): void {
   const known = readJson<Record<string, string>>(knownFile(), {});
   known[knownKey(host, port)] = fingerprint;
+  writeJson(knownFile(), known);
+}
+
+export interface HostExport {
+  hosts: Omit<Stored, 'password' | 'passphrase'>[];
+  secrets: Record<string, Secrets>;
+}
+
+export async function exportAll(): Promise<HostExport> {
+  const hosts: HostExport['hosts'] = [];
+  const secrets: HostExport['secrets'] = {};
+  for (const s of load()) {
+    const { password, passphrase, ...rest } = s;
+    hosts.push(rest);
+    const pw = await unseal(password);
+    const pp = await unseal(passphrase);
+    if (pw || pp) secrets[s.id] = { password: pw, passphrase: pp };
+  }
+  return { hosts, secrets };
+}
+
+export async function importAll(hosts: unknown[], secrets: Record<string, Partial<Secrets>>): Promise<number> {
+  const all = load();
+  let count = 0;
+  for (const raw of hosts) {
+    const h = raw as Partial<Stored>;
+    if (!h || typeof h.id !== 'string' || !/^[A-Za-z0-9-]{8,64}$/.test(h.id)) continue;
+    let base;
+    try {
+      base = normalize(h as RemoteHostInput);
+    } catch {
+      continue;
+    }
+    const existing = all.find((x) => x.id === h.id);
+    const secret = secrets[h.id] ?? {};
+    const next: Stored = {
+      ...base,
+      id: h.id,
+      createdAt: typeof h.createdAt === 'number' ? h.createdAt : Date.now(),
+      lastUsed: typeof h.lastUsed === 'number' ? h.lastUsed : null,
+      password: secret.password ? await seal(secret.password) : existing?.password,
+      passphrase: secret.passphrase ? await seal(secret.passphrase) : existing?.passphrase,
+    };
+    if (existing) all.splice(all.indexOf(existing), 1, next);
+    else all.push(next);
+    count++;
+  }
+  writeJson(hostsFile(), all);
+  return count;
+}
+
+export const knownHostsAll = (): Record<string, string> => readJson<Record<string, string>>(knownFile(), {});
+
+export function mergeKnownHosts(incoming: Record<string, string>): void {
+  const known = knownHostsAll();
+  for (const [key, value] of Object.entries(incoming)) if (typeof value === 'string' && !(key in known)) known[key] = value;
   writeJson(knownFile(), known);
 }

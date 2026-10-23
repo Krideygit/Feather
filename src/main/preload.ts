@@ -52,6 +52,27 @@ const bridge: FeatherBridge = {
     };
   },
   pathForFile: (file) => webUtils.getPathForFile(file),
+
+  onSaveeyeCapture: (callback) => {
+    const handler = (_event: unknown, payload: { active: boolean; sources: string[]; transient: boolean }): void => callback(payload);
+    ipcRenderer.on('saveeye:capture', handler);
+    return () => {
+      ipcRenderer.removeListener('saveeye:capture', handler);
+    };
+  },
+  onWindowFocus: (callback) => {
+    const handler = (_event: unknown, focused: boolean): void => callback(focused);
+    ipcRenderer.on('saveeye:focus', handler);
+    return () => {
+      ipcRenderer.removeListener('saveeye:focus', handler);
+    };
+  },
+  saveeyeAnswer: (allow) => ipcRenderer.send('saveeye:answer', allow),
+  setTitleBar: (color, symbol) => ipcRenderer.send('window:titleBar', color, symbol),
+  backupCreate: (options) => ipcRenderer.invoke('backup:create', options),
+  backupPick: () => ipcRenderer.invoke('backup:pick'),
+  backupRestore: (options) => ipcRenderer.invoke('backup:restore', options),
+  pluginSample: () => ipcRenderer.invoke('plugins:sample'),
 };
 
 contextBridge.exposeInMainWorld('feather', bridge);

@@ -93,7 +93,7 @@ export interface FileContent {
   mtime: number;
 }
 
-export type RemoteErrorCode = 'need-password' | 'need-passphrase' | 'hostkey-new' | 'hostkey-changed' | 'auth' | 'generic';
+export type RemoteErrorCode = 'need-password' | 'need-passphrase' | 'need-sudo' | 'hostkey-new' | 'hostkey-changed' | 'auth' | 'generic';
 
 export class RemoteError extends Error {
   constructor(
@@ -106,11 +106,15 @@ export class RemoteError extends Error {
   }
 }
 
+import type { JobEvent, JobLog } from './modules';
+
 export type RemoteEvents = {
   'term.data': { sid: string; data: string };
   'term.exit': { sid: string };
   'session.closed': { sid: string; reason: string };
   transfer: Transfer;
+  'mod.job': JobEvent;
+  'mod.log': JobLog;
 };
 
 export const DEFAULT_PORTS: Record<RemoteProtocol, number> = { ssh: 22, sftp: 22, ftp: 21 };

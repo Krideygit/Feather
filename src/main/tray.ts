@@ -1,8 +1,10 @@
 import { Menu, Tray, nativeImage } from 'electron';
 import path from 'node:path';
+import { t } from './i18n';
 
 export interface FeatherTray {
   setRunning(count: number): void;
+  refresh(): void;
   balloon(title: string, content: string): void;
   destroy(): void;
 }
@@ -19,16 +21,16 @@ export function createTray({ onOpen, onStopAll, onQuit }: TrayHandlers): Feather
   let running = 0;
 
   const refresh = (): void => {
-    const label = `${running} ${running === 1 ? 'Service läuft' : 'Services laufen'}`;
+    const label = `${running} ${t(running === 1 ? 'Service läuft' : 'Services laufen')}`;
     tray.setToolTip(running ? `Feather – ${label}` : 'Feather');
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Feather öffnen', click: onOpen },
+        { label: t('Feather öffnen'), click: onOpen },
         { type: 'separator' },
-        { label: running ? label : 'Keine Services aktiv', enabled: false },
-        { label: 'Alle Services stoppen', enabled: running > 0, click: onStopAll },
+        { label: running ? label : t('Keine Services aktiv'), enabled: false },
+        { label: t('Alle Services stoppen'), enabled: running > 0, click: onStopAll },
         { type: 'separator' },
-        { label: 'Feather beenden', click: onQuit },
+        { label: t('Feather beenden'), click: onQuit },
       ]),
     );
   };
@@ -38,6 +40,7 @@ export function createTray({ onOpen, onStopAll, onQuit }: TrayHandlers): Feather
   refresh();
 
   return {
+    refresh,
     setRunning(count) {
       if (count === running) return;
       running = count;

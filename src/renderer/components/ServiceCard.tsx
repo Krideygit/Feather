@@ -25,7 +25,7 @@ export function ServiceCard({ service: s }: { service: Service }) {
           <TypeIcon type={s.type} className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-medium text-neutral-100 truncate">{s.name}</h3>
+          <h3 className="font-medium text-neutral-100 truncate" data-notranslate>{s.name}</h3>
           <p className="text-xs text-neutral-500 mt-0.5">
             {type.label} {s.version}
           </p>

@@ -1,0 +1,8 @@
+{
+  "name": "Rainbow Icons",
+  "author": "Kridey",
+  "version": "1.0.0",
+  "main": "dev.feather.rainbow.RainbowIcons",
+  "description": "Lässt alle Icons im Terminal-Bereich in Regenbogenfarben leuchten.",
+  "apiVersion": 1
+}

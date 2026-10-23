@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const srcDir = path.join(root, 'core', 'src');
 const outDir = path.join(root, 'core', 'out');
-const jarFile = path.join(root, 'core', 'feather-core.jar');
+const jarFile = process.env.FEATHER_CORE_OUT || path.join(root, 'core', 'feather-core.jar');
 
 function tool(name) {
   const javaHome = process.env.JAVA_HOME;

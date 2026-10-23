@@ -9,7 +9,7 @@ import type {
   Settings,
 } from '../../shared/types';
 
-export type Route = 'dashboard' | 'database' | 'webserver' | 'packages' | 'server';
+export type Route = 'dashboard' | 'database' | 'webserver' | 'packages' | 'server' | 'sql' | 'settings';
 
 export interface AppState {
   route: Route;
@@ -32,7 +32,7 @@ let state: AppState = {
   profiles: [],
   info: null,
   version: '',
-  settings: { runInBackground: true },
+  settings: { runInBackground: true, theme: 'feather-dark', themes: [], language: 'de', saveeye: { enabled: false, mode: 'ask', blurOnBlur: false } },
   coreError: null,
   ready: false,
 };

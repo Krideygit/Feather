@@ -22,6 +22,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { RemoteEntry } from '../../shared/remote';
 import { Notice } from '../components/Bits';
+import { PluginButtons } from '../components/PluginUi';
 import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { confirmDialog } from '../components/Layers';
 import { toast } from '../components/Toast';
@@ -139,6 +140,10 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
   useEffect(() => {
     if (ready) void load(root);
   }, [root, ready, load]);
+
+  useEffect(() => {
+    if (session.filesTarget) navigate(session.filesTarget.path);
+  }, [session.filesTarget]);
 
   useEffect(() => {
     if (!ready) return;
@@ -599,6 +604,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
           <button className="btn btn-ghost btn-icon btn-sm" title={showHidden ? 'Versteckte Dateien ausblenden' : 'Versteckte Dateien anzeigen'} aria-label="Versteckte Dateien umschalten" onClick={() => setShowHidden(!showHidden)}>
             {showHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
           </button>
+          <PluginButtons location="files.toolbar" />
         </div>
       </div>
 
@@ -716,7 +722,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
                     ) : (
                       <span className="size-4 shrink-0" />
                     )}
-                    <Icon className={`size-4 ${tone}`} />
+                    <Icon className={`size-4 ${tone}`} data-feather-icon={folder ? 'folder' : 'file'} />
                     {renaming ? (
                       <NameInput initial={entry.name} isFile={!folder} onCommit={(name) => void rename(entry, name)} onCancel={() => setEdit(null)} />
                     ) : (

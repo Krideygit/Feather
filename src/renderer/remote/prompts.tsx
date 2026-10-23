@@ -9,6 +9,7 @@ interface PasswordOptions {
   message: string;
   label: string;
   canRemember: boolean;
+  confirmLabel?: string;
 }
 
 export interface PasswordAnswer {
@@ -32,7 +33,7 @@ function PasswordPrompt({ options, onAnswer, onClose }: { options: PasswordOptio
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button className="btn btn-primary" disabled={!password} onClick={submit} data-action="prompt-submit">Verbinden</button>
+          <button className="btn btn-primary" disabled={!password} onClick={submit} data-action="prompt-submit">{options.confirmLabel ?? 'Verbinden'}</button>
         </>
       }
     >

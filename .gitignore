@@ -5,3 +5,4 @@ core/feather-core.jar
 release/
 *.log
 .DS_Store
+plugins-dist/

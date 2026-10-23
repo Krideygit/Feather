@@ -55,11 +55,22 @@ final class Jdbc {
         return res.body();
     }
 
+    record Conn(String host, int port, String user, String password) {}
+
+    static Conn conn(Service s) {
+        return new Conn("127.0.0.1", s.port, "root", s.password == null ? "" : s.password);
+    }
+
     static Connection connect(Service s, String database) throws Exception {
+        return connect(conn(s), database);
+    }
+
+    static Connection connect(Conn conn, String database) throws Exception {
         Properties props = new Properties();
-        props.setProperty("user", "root");
-        props.setProperty("password", s.password == null ? "" : s.password);
-        Connection c = driver().connect("jdbc:mariadb://127.0.0.1:" + s.port + "/?connectTimeout=5000", props);
+        props.setProperty("user", conn.user());
+        props.setProperty("password", conn.password() == null ? "" : conn.password());
+        String host = conn.host().contains(":") ? "[" + conn.host() + "]" : conn.host();
+        Connection c = driver().connect("jdbc:mariadb://" + host + ":" + conn.port() + "/?connectTimeout=5000", props);
         if (c == null) throw new IOException("Verbindung zur Datenbank nicht möglich.");
         if (database != null && !database.isEmpty()) c.setCatalog(database);
         return c;

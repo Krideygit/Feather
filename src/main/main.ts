@@ -2,9 +2,12 @@ import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeImage, shel
 import fs from 'node:fs';
 import path from 'node:path';
 import type { FileFilter, Service, Settings } from '../shared/types';
+import { createBackup, inspectBackup, restoreBackup } from './backup';
 import { Core } from './core';
 import { registerRemote } from './remote/ipc';
 import * as settings from './settings';
+import { t } from './i18n';
+import { Saveeye } from './saveeye';
 import { createSplash, type Splash } from './splash';
 import { createTray, type FeatherTray } from './tray';
 
@@ -15,6 +18,10 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
 const isWeb = (url: string): boolean => /^https?:\/\//.test(url);
 
 const core = new Core();
+const saveeye = new Saveeye(
+  () => win,
+  (notice) => send('saveeye:capture', notice),
+);
 let remote: { shutdown: () => void } | null = null;
 const statuses = new Map<string, string>();
 let win: BrowserWindow | null = null;
@@ -64,6 +71,14 @@ function createWindow(): BrowserWindow {
     });
   }
 
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.key === 'PrintScreen') saveeye.trigger('Screenshot-Taste');
+    else if (input.meta && input.shift) saveeye.trigger('Windows-Screenshot');
+  });
+  window.on('blur', () => send('saveeye:focus', false));
+  window.on('focus', () => send('saveeye:focus', true));
+
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isWeb(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -81,7 +96,7 @@ function createWindow(): BrowserWindow {
     window.hide();
     if (!announcedBackground) {
       announcedBackground = true;
-      tray.balloon('Feather läuft im Hintergrund', 'Deine Services laufen weiter. Über das Symbol im Infobereich öffnest oder beendest du Feather.');
+      tray.balloon(t('Feather läuft im Hintergrund'), t('Deine Services laufen weiter. Über das Symbol im Infobereich öffnest oder beendest du Feather.'));
     }
   });
   window.on('closed', () => {
@@ -114,7 +129,55 @@ function registerIpc(): void {
 
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('settings:get', () => settings.get());
-  ipcMain.handle('settings:set', (_event, patch: Partial<Settings>) => settings.set(patch ?? {}));
+  ipcMain.handle('settings:set', (_event, patch: Partial<Settings>) => {
+    const next = settings.set(patch ?? {});
+    saveeye.configure(next.saveeye);
+    tray?.refresh();
+    return next;
+  });
+  ipcMain.on('saveeye:answer', (_event, allow: unknown) => saveeye.answer(allow === true));
+  ipcMain.on('window:titleBar', (_event, color: unknown, symbol: unknown) => {
+    if (win && !win.isDestroyed() && typeof color === 'string' && typeof symbol === 'string' && /^#[0-9a-f]{6}$/i.test(color) && /^#[0-9a-f]{6}$/i.test(symbol)) {
+      win.setTitleBarOverlay({ color, symbolColor: symbol, height: 40 });
+      win.setBackgroundColor(color);
+    }
+  });
+
+  ipcMain.handle('backup:create', async (_event, opts: { password?: string; includeData?: boolean }) => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const options = {
+      title: 'Sicherung speichern',
+      defaultPath: path.join(app.getPath('documents'), `feather-sicherung-${stamp}.featherbackup`),
+      filters: [{ name: 'Feather-Sicherung', extensions: ['featherbackup'] }],
+    };
+    const res = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    if (res.canceled || !res.filePath) return { ok: true, result: null };
+    try {
+      return { ok: true, result: await createBackup(core, { file: res.filePath, password: String(opts?.password ?? ''), includeData: opts?.includeData !== false }) };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle('backup:pick', async () => {
+    const res = await openDialog({ title: 'Sicherung auswählen', filters: [{ name: 'Feather-Sicherung', extensions: ['featherbackup'] }], properties: ['openFile'] });
+    if (res.canceled || !res.filePaths[0]) return { ok: true, result: null };
+    try {
+      return { ok: true, result: { file: res.filePaths[0], info: await inspectBackup(res.filePaths[0]) } };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle('backup:restore', async (_event, opts: { file?: string; password?: string }) => {
+    try {
+      return { ok: true, result: await restoreBackup(core, { file: String(opts?.file ?? ''), password: String(opts?.password ?? '') }) };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle('plugins:sample', () => {
+    const sample = path.join(__dirname, '..', '..', 'plugins-dist', 'rainbow-icons.jar');
+    return fs.existsSync(sample) ? sample : null;
+  });
 
   ipcMain.on('boot:progress', (_event, percent: number, label: string) => {
     splash?.progress(Math.max(0, Math.min(99, Number(percent) || 0)), String(label || ''));
@@ -246,6 +309,7 @@ async function boot(): Promise<void> {
   loading.progress(50, 'Core verbunden');
 
   const window = createWindow();
+  saveeye.configure(settings.get().saveeye);
   if (process.env.FEATHER_SCREENSHOT) captureAndExit(window, process.env.FEATHER_SCREENSHOT);
   loading.progress(62, 'Oberfläche wird geladen …');
 
@@ -277,6 +341,7 @@ app.on('before-quit', (event) => {
   if (quitting) return;
   event.preventDefault();
   quitting = true;
+  saveeye.stop();
   remote?.shutdown();
   void core.shutdown().finally(() => {
     tray?.destroy();

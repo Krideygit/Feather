@@ -366,7 +366,7 @@ function HostCard({ host }: { host: RemoteHost }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-medium text-neutral-100 truncate">{host.name}</h3>
+            <h3 className="font-medium text-neutral-100 truncate" data-notranslate>{host.name}</h3>
             <span className="text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 bg-neutral-800 text-neutral-400 shrink-0">{protocolLabel(host)}</span>
             {host.protocol === 'ftp' && host.secure === 'none' && <ShieldAlert className="size-3.5 text-amber-400 shrink-0" aria-label="Unverschlüsselt" />}
           </div>

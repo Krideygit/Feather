@@ -13,8 +13,11 @@ import {
   type SessionInfo,
   type SessionOpen,
 } from '../../shared/remote';
+import type { SqlConnectionInput } from '../../shared/sql';
 import { join, type RemoteFs } from './backends';
 import { friendly } from './errors';
+import * as creds from './creds';
+import { createModuleMethods } from './modules/manager';
 import { Session } from './session';
 import { Transfers } from './transfers';
 import * as vault from './vault';
@@ -107,6 +110,20 @@ export function registerRemote({ send, pickLocal }: Deps): { shutdown: () => voi
     'hosts.save': async (p): Promise<RemoteHost> => vault.save(p.input as RemoteHostInput),
     'hosts.remove': (p) => vault.remove(text(p, 'id')),
     'hosts.canStore': () => vault.canStoreSecrets(),
+
+    'creds.list': (p) => creds.list(typeof p.hostKey === 'string' ? p.hostKey : undefined),
+    'creds.save': (p) => creds.save(p.input as SqlConnectionInput),
+    'creds.remove': (p) => creds.remove(text(p, 'id')),
+    'creds.reveal': async (p) => ({ password: await creds.reveal(text(p, 'id')) }),
+
+    'tunnel.open': async (p) => {
+      const l = live(p);
+      if (!l.session.open || !l.session.hasTerminal) throw new RemoteError('Für Tunnel wird eine SSH-Verbindung benötigt.');
+      const port = Number(p.port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) throw new RemoteError('Ungültiger Port.');
+      const host = typeof p.host === 'string' && /^[A-Za-z0-9_.:-]{1,253}$/.test(p.host) ? p.host : '127.0.0.1';
+      return { port: await l.session.tunnel(host, port) };
+    },
 
     'session.open': async (p) => {
       const req = p as unknown as SessionOpen;
@@ -210,6 +227,16 @@ export function registerRemote({ send, pickLocal }: Deps): { shutdown: () => voi
       return strings(p, 'names').filter((n) => fs.existsSync(path.join(dir, n)));
     },
   };
+
+  Object.assign(
+    methods,
+    createModuleMethods((p) => {
+      const l = live(p);
+      if (!l.session.open) throw new RemoteError('Die Verbindung wurde getrennt.');
+      if (!l.session.hasTerminal) throw new RemoteError('Module sind nur bei SSH-Verbindungen verfügbar.');
+      return l.session;
+    }, emit),
+  );
 
   ipcMain.handle('remote:call', async (_event, method: string, params: Params) => {
     try {

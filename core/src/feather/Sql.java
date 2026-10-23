@@ -32,11 +32,15 @@ final class Sql {
     private Sql() {}
 
     static Map<String, Object> run(Service s, String database, String script) throws Exception {
+        return run(Jdbc.conn(s), database, script);
+    }
+
+    static Map<String, Object> run(Jdbc.Conn conn, String database, String script) throws Exception {
         List<String> statements = SqlSplitter.split(script);
         if (statements.isEmpty()) throw new IllegalArgumentException("Es gibt nichts auszuführen.");
         List<Object> results = new ArrayList<>();
         Object error = null;
-        try (Connection c = Jdbc.connect(s, database)) {
+        try (Connection c = Jdbc.connect(conn, database)) {
             for (int i = 0; i < statements.size() && error == null; i++) {
                 String sql = statements.get(i);
                 long start = System.nanoTime();
@@ -104,12 +108,16 @@ final class Sql {
     }
 
     static List<Object> schema(Service s, String database) throws Exception {
+        return schema(Jdbc.conn(s), database);
+    }
+
+    static List<Object> schema(Jdbc.Conn conn, String database) throws Exception {
         String query = "SELECT t.table_name, t.table_type, c.column_name, c.column_type, c.column_key "
                 + "FROM information_schema.tables t LEFT JOIN information_schema.columns c "
                 + "ON c.table_schema = t.table_schema AND c.table_name = t.table_name "
                 + "WHERE t.table_schema = ? ORDER BY t.table_name, c.ordinal_position";
         Map<String, Map<String, Object>> tables = new java.util.LinkedHashMap<>();
-        try (Connection c = Jdbc.connect(s, null); java.sql.PreparedStatement ps = c.prepareStatement(query)) {
+        try (Connection c = Jdbc.connect(conn, null); java.sql.PreparedStatement ps = c.prepareStatement(query)) {
             ps.setString(1, database);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

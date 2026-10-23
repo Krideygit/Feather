@@ -20,8 +20,10 @@ public final class Main {
         profiles.load();
         ServiceManager manager = new ServiceManager();
         manager.load();
-        Api api = new Api(manager, profiles);
+        Plugins plugins = new Plugins();
+        Api api = new Api(manager, profiles, plugins);
         Events.setSink((name, data) -> send(Json.obj("event", name, "data", data)));
+        plugins.loadAll();
 
         ExecutorService pool = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r, "feather-rpc");
@@ -40,6 +42,7 @@ public final class Main {
             pool.submit(() -> handle(api, raw));
         }
 
+        plugins.shutdown();
         manager.stopAll();
         out.flush();
         System.exit(0);

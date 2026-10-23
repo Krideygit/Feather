@@ -1,16 +1,25 @@
-import { ChevronsUpDown, CircleAlert, Database, Globe, LayoutDashboard, Package, Terminal, type LucideIcon } from 'lucide-react';
+import { ChevronsUpDown, CircleAlert, Database, Globe, LayoutDashboard, Package, Settings as SettingsIcon, Table2, Terminal, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './components/Bits';
 import { LayerHost } from './components/Layers';
+import { PluginButtons } from './components/PluginUi';
+import { SaveeyeGuard } from './components/SaveeyeGuard';
 import { ToastHost } from './components/Toast';
 import { ProfileMenu } from './dialogs/Profiles';
 import { call, refreshProfiles, refreshRuntimes, refreshServices } from './lib/api';
 import { listenToCore } from './lib/events';
+import { listenToModules } from './lib/modules';
+import { listenToPlugins, usePluginStyles } from './lib/plugins';
 import { listenToRemote, loadHosts, useRemote } from './lib/remote';
+import { listenToSaveeye } from './lib/saveeye';
+import { applyLanguage } from './lib/i18n';
+import { applyTheme, findTheme } from './lib/theme';
 import { type Route, setState, useActiveProfile, useAppState } from './lib/store';
 import { CategoryPage } from './pages/CategoryPage';
 import { DashboardPage } from './pages/Dashboard';
 import { PackagesPage } from './pages/Packages';
+import { SettingsPage } from './pages/SettingsPage';
+import { SqlPage } from './pages/SqlPage';
 import { ServerPage } from './pages/Server';
 import type { AppInfo } from '../shared/types';
 
@@ -20,9 +29,10 @@ const NAV: { route: Route; label: string; icon: LucideIcon; soon?: boolean }[] =
   { route: 'webserver', label: 'Webserver', icon: Globe },
   { route: 'packages', label: 'Packages', icon: Package },
   { route: 'server', label: 'Terminal', icon: Terminal },
+  { route: 'sql', label: 'Feather SQL', icon: Table2 },
 ];
 
-const ROUTES = NAV.map((n) => n.route);
+const ROUTES: Route[] = [...NAV.map((n) => n.route), 'settings'];
 
 function storedRoute(): Route {
   try {
@@ -93,12 +103,22 @@ function Sidebar() {
         })}
       </nav>
       <div className="flex-1" />
+      <PluginButtons location="sidebar" className="flex-col items-stretch mb-2" />
+      <button
+        className={`no-drag flex items-center gap-3 h-10 px-3 mb-1 rounded-lg text-sm font-medium transition-colors ${route === 'settings' ? 'bg-primary/10 text-primary' : 'text-neutral-400 hover:bg-neutral-800/70 hover:text-neutral-100'}`}
+        onClick={() => go('settings')}
+        aria-current={route === 'settings' ? 'page' : undefined}
+        data-route="settings"
+      >
+        <SettingsIcon className="size-[18px]" />
+        <span className="flex-1 text-left">Einstellungen</span>
+      </button>
       <div className="relative" ref={holder}>
         {menuOpen && <ProfileMenu onClose={() => setMenuOpen(false)} />}
         <button id="profile-button" className="no-drag flex items-center gap-2.5 w-full rounded-lg p-2 hover:bg-neutral-800/70 transition-colors" onClick={() => setMenuOpen(!menuOpen)} title="Profil wechseln" aria-haspopup="menu" aria-expanded={menuOpen}>
           <Avatar profile={profile} />
           <span className="flex-1 min-w-0 text-left">
-            <span className="block text-sm font-medium text-neutral-100 truncate">{profile?.name ?? 'Profil'}</span>
+            <span className="block text-sm font-medium text-neutral-100 truncate" data-notranslate>{profile?.name ?? 'Profil'}</span>
             <span className="block text-[11px] text-neutral-500">Aktives Profil</span>
           </span>
           <ChevronsUpDown className="size-4 text-neutral-500" />
@@ -111,13 +131,22 @@ function Sidebar() {
 function Page() {
   const route = useAppState((s) => s.route);
   const live = useRemote((s) => s.sessions.length + s.pending.length > 0);
+  const [sqlVisited, setSqlVisited] = useState(false);
+  useEffect(() => {
+    if (route === 'sql') setSqlVisited(true);
+  }, [route]);
   const content =
-    route === 'database' ? <CategoryPage category="database" /> : route === 'webserver' ? <CategoryPage category="webserver" /> : route === 'packages' ? <PackagesPage /> : route === 'server' ? null : <DashboardPage />;
+    route === 'database' ? <CategoryPage category="database" /> : route === 'webserver' ? <CategoryPage category="webserver" /> : route === 'packages' ? <PackagesPage /> : route === 'settings' ? <SettingsPage /> : route === 'server' || route === 'sql' ? null : <DashboardPage />;
   return (
     <>
       {content && (
         <div key={route} className="flex flex-1 min-h-0 flex-col animate-rise">
           {content}
+        </div>
+      )}
+      {(route === 'sql' || sqlVisited) && (
+        <div className={route === 'sql' ? 'flex flex-1 min-h-0 flex-col animate-rise' : 'hidden'}>
+          <SqlPage />
         </div>
       )}
       {(route === 'server' || live) && (
@@ -133,6 +162,16 @@ export function App() {
   const coreError = useAppState((s) => s.coreError);
   const version = useAppState((s) => s.version);
   const ready = useAppState((s) => s.ready);
+  const settings = useAppState((s) => s.settings);
+  usePluginStyles();
+
+  useEffect(() => {
+    applyTheme(findTheme(settings.theme, settings.themes));
+  }, [settings.theme, settings.themes]);
+
+  useEffect(() => {
+    applyLanguage(settings.language);
+  }, [settings.language]);
 
   useEffect(() => {
     const bridge = window.feather;
@@ -140,10 +179,16 @@ export function App() {
     bridge.bootProgress(66, 'Profil wird geladen …');
     const stopCore = listenToCore();
     const stopRemote = listenToRemote();
+    const stopModules = listenToModules();
+    const stopSaveeye = listenToSaveeye();
+    const stopPlugins = listenToPlugins();
     void loadHosts().catch(() => undefined);
     const stopListening = (): void => {
       stopCore();
       stopRemote();
+      stopModules();
+      stopSaveeye();
+      stopPlugins();
     };
 
     void (async () => {
@@ -187,6 +232,7 @@ export function App() {
       </div>
       <div className="pointer-events-none fixed bottom-1.5 left-1/2 -translate-x-1/2 text-[11px] text-neutral-600 select-none z-10">{version && `Feather v${version}`}</div>
       <LayerHost />
+      <SaveeyeGuard />
       <ToastHost />
     </div>
   );
