@@ -2,7 +2,7 @@
 
 Feather ist eine Desktop-Anwendung für Windows. Sie verwaltet lokale Dienste wie MariaDB, Nginx und Apache, stellt Terminal, Dateiverwaltung und einen SQL-Client für entfernte Server bereit und lässt sich über Plugins erweitern.
 
-Diese Dokumentation gilt für Version 1.0.
+Diese Dokumentation gilt für Version 1.0. The developer documentation is also available in English: [docs/en](en/index.md).
 
 ## Anwender
 
