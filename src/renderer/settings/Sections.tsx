@@ -318,6 +318,20 @@ export function GeneralSection() {
   return (
     <div className="space-y-5 max-w-xl animate-fade-in" data-section="general">
       <Toggle checked={runInBackground} onChange={(v) => void updateSettings({ runInBackground: v })} label="Im Hintergrund weiterlaufen" description="Beim Schließen des Fensters bleiben deine Services aktiv. Feather liegt dann im Infobereich der Taskleiste." />
+      <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-neutral-100">Einrichtungsassistent</p>
+          <p className="text-xs text-neutral-500">Profil, Thema, Saveeye und Hilfen noch einmal Schritt für Schritt durchgehen.</p>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={() => void updateSettings({ onboarded: false })} data-action="welcome-reopen">Öffnen</button>
+      </div>
+      <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-neutral-100">Dokumentation</p>
+          <p className="text-xs text-neutral-500">Anleitungen für Anwender und die Plugin-Entwicklung auf GitHub.</p>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={() => void window.feather.openExternal('https://github.com/Krideygit/feather-software/tree/main/docs')} data-action="open-docs">Öffnen</button>
+      </div>
     </div>
   );
 }

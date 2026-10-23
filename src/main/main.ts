@@ -250,8 +250,8 @@ function registerIpc(): void {
     return reply(() => ({ file, total: languages.writeTemplate(file, meta) }));
   });
   ipcMain.handle('plugins:sample', () => {
-    const sample = path.join(__dirname, '..', '..', 'plugins-dist', 'rainbow-icons.jar');
-    return fs.existsSync(sample) ? sample : null;
+    const candidates = [path.join(process.resourcesPath, 'plugins', 'rainbow-icons.jar'), path.join(__dirname, '..', '..', 'plugins-dist', 'rainbow-icons.jar')];
+    return candidates.find((c) => fs.existsSync(c)) ?? null;
   });
 
   ipcMain.on('boot:progress', (_event, percent: number, label: string) => {

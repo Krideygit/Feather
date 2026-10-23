@@ -12,6 +12,7 @@ import { listenToModules } from './lib/modules';
 import { listenToPlugins, usePluginStyles } from './lib/plugins';
 import { listenToRemote, loadHosts, useRemote } from './lib/remote';
 import { listenToSaveeye } from './lib/saveeye';
+import { Welcome } from './dialogs/Welcome';
 import { applyLanguage } from './lib/i18n';
 import { applyTheme, findTheme } from './lib/theme';
 import { type Route, setState, useActiveProfile, useAppState } from './lib/store';
@@ -231,6 +232,7 @@ export function App() {
         </main>
       </div>
       <div className="pointer-events-none fixed bottom-1.5 left-1/2 -translate-x-1/2 text-[11px] text-neutral-600 select-none z-10">{version && `Feather v${version}`}</div>
+      {ready && !coreError && !settings.onboarded && <Welcome />}
       <LayerHost />
       <SaveeyeGuard />
       <ToastHost />

@@ -126,6 +126,7 @@ export interface Settings {
   theme: string;
   themes: Theme[];
   language: Language;
+  onboarded: boolean;
   database: DatabaseSettings;
   terminal: TerminalSettings;
   saveeye: SaveeyeSettings;

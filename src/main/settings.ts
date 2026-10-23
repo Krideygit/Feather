@@ -9,6 +9,7 @@ export const DEFAULTS: Settings = {
   theme: 'feather-dark',
   themes: [],
   language: 'de',
+  onboarded: false,
   database: { history: true, keepDeleted: true, autocomplete: true },
   terminal: { suggestions: true, hints: true },
   saveeye: { enabled: false, mode: 'ask', blurOnBlur: false },
@@ -66,6 +67,7 @@ function normalize(raw: Partial<Settings>, base: Settings): Settings {
     themes,
     language: typeof raw.language === 'string' && LANG_CODE.test(raw.language) ? raw.language : base.language,
     saveeye: cleanSaveeye(raw.saveeye, base.saveeye),
+    onboarded: typeof raw.onboarded === 'boolean' ? raw.onboarded : base.onboarded,
     database: cleanDatabase(raw.database, base.database),
     terminal: cleanTerminal(raw.terminal, base.terminal),
   };
