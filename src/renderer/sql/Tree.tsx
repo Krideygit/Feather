@@ -1,9 +1,10 @@
 import { ChevronRight, Database, FilePlus2, Grid2x2Plus, Loader2, Plus, RefreshCw, Search, Table2, Trash2, Eraser, Eye, TextCursorInput } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { Field } from '../components/Form';
 import { Modal, confirmDialog, openLayer } from '../components/Layers';
 import { toast } from '../components/Toast';
+import { invalidateSchema } from '../lib/sqlschema';
 import { ident, literal, rowsOf, runSql } from '../lib/sqlsource';
 import { openTableDesigner } from './Designer';
 
@@ -29,6 +30,7 @@ interface Props {
   onQuery: (db: string, sql?: string) => void;
   onDropped: (db: string, table?: string) => void;
   reloadKey: number;
+  refreshKey?: number;
 }
 
 const fail = (err: unknown): void => toast(err instanceof Error ? err.message : String(err), 'error');
@@ -60,7 +62,7 @@ function NewDatabase({ source, onDone, onClose }: { source: string; onDone: () =
   );
 }
 
-export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Props) {
+export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey, refreshKey = 0 }: Props) {
   const [dbs, setDbs] = useState<DbNode[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -96,6 +98,22 @@ export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Pro
     setDbs(null);
     void loadDatabases();
   }, [loadDatabases, reloadKey]);
+
+  const current = useRef<DbNode[] | null>(null);
+  current.current = dbs;
+
+  const refreshAll = useCallback(async (): Promise<void> => {
+    invalidateSchema(source);
+    await loadDatabases();
+    for (const node of current.current ?? []) if (node.tables) void loadTables(node.name);
+  }, [source, loadDatabases, loadTables]);
+
+  const lastRefresh = useRef(refreshKey);
+  useEffect(() => {
+    if (lastRefresh.current === refreshKey) return;
+    lastRefresh.current = refreshKey;
+    void refreshAll();
+  }, [refreshKey, refreshAll]);
 
   function toggle(db: DbNode): void {
     setDbs((list) => list?.map((d) => (d.name === db.name ? { ...d, open: !d.open } : d)) ?? list);
@@ -156,7 +174,7 @@ export function Tree({ source, onOpenTable, onQuery, onDropped, reloadKey }: Pro
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-neutral-500 pointer-events-none" />
           <input className="input h-8 pl-8 text-[13px]" placeholder="Suchen …" value={filter} onChange={(e) => setFilter(e.target.value)} />
         </div>
-        <button className="btn btn-ghost btn-icon btn-sm" title="Aktualisieren" aria-label="Aktualisieren" onClick={() => void loadDatabases()}>
+        <button className="btn btn-ghost btn-icon btn-sm" title="Datenbanken und Tabellen neu laden" aria-label="Aktualisieren" onClick={() => void refreshAll()} data-action="tree-refresh">
           <RefreshCw className="size-4" />
         </button>
         <button className="btn btn-ghost btn-icon btn-sm" title="Neue Datenbank" aria-label="Neue Datenbank" onClick={() => openLayer((close) => <NewDatabase source={source} onDone={() => void loadDatabases()} onClose={close} />)} data-action="sql-new-db">

@@ -1,4 +1,4 @@
-import { ClipboardCopy, ClipboardPaste, Eraser, MousePointerClick, Plug, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowDownToLine, ClipboardCopy, ClipboardPaste, Eraser, MousePointerClick, Plug, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { getModules } from '../lib/modules';
@@ -6,10 +6,18 @@ import { callRemote, getRemote, reconnect, restartShell, saveFontSize, savedFont
 import { attachHelp, handleHelpKey } from '../lib/termhelp';
 import { TermAssist } from './TermAssist';
 
+async function pasteInto(sid: string): Promise<void> {
+  const { term } = terminalFor(sid);
+  const text = await window.feather.readClipboard();
+  if (text) term.paste(text);
+  term.focus();
+}
+
 export function TerminalView({ session, visible }: { session: SessionView; visible: boolean }) {
   const holder = useRef<HTMLDivElement>(null);
   const outer = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [scrolledUp, setScrolledUp] = useState(false);
   const { sid } = session;
 
   const refit = useCallback((): void => {
@@ -50,7 +58,7 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
       if (event.type !== 'keydown') return true;
       const key = event.key.toLowerCase();
       const copyCombo = (event.ctrlKey && event.shiftKey && key === 'c') || (event.ctrlKey && key === 'insert');
-      const pasteCombo = (event.ctrlKey && event.shiftKey && key === 'v') || (event.shiftKey && key === 'insert');
+      const pasteCombo = (event.ctrlKey && !event.altKey && key === 'v') || (event.shiftKey && key === 'insert');
       if (copyCombo || (event.ctrlKey && !event.shiftKey && key === 'c' && entry.term.hasSelection())) {
         event.preventDefault();
         void window.feather.copy(entry.term.getSelection());
@@ -59,11 +67,17 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
       }
       if (pasteCombo) {
         event.preventDefault();
-        void window.feather.readClipboard().then((text) => text && entry.term.paste(text));
+        void pasteInto(sid);
         return false;
       }
       return true;
     });
+
+    const watchScroll = (): void => {
+      const buffer = entry.term.buffer.active;
+      setScrolledUp(buffer.type === 'normal' && buffer.viewportY < buffer.baseY);
+    };
+    const scrollWatchers = [entry.term.onScroll(watchScroll), entry.term.onWriteParsed(watchScroll), entry.term.onResize(watchScroll)];
 
     let frame = 0;
     const schedule = (): void => {
@@ -81,6 +95,7 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
     };
     el.addEventListener('wheel', wheel, { passive: false });
     return () => {
+      scrollWatchers.forEach((w) => w.dispose());
       cancelAnimationFrame(frame);
       observer.disconnect();
       el.removeEventListener('wheel', wheel);
@@ -112,8 +127,8 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
   const entries = (): MenuEntry[] => {
     const { term } = terminalFor(sid);
     return [
-      { kind: 'action', label: 'Kopieren', icon: ClipboardCopy, hint: 'Strg+Umschalt+C', disabled: !term.hasSelection(), onSelect: () => void window.feather.copy(term.getSelection()) },
-      { kind: 'action', label: 'Einfügen', icon: ClipboardPaste, hint: 'Strg+Umschalt+V', onSelect: () => void window.feather.readClipboard().then((t) => t && term.paste(t)) },
+      { kind: 'action', label: 'Kopieren', icon: ClipboardCopy, hint: 'Strg+C', disabled: !term.hasSelection(), onSelect: () => void window.feather.copy(term.getSelection()) },
+      { kind: 'action', label: 'Einfügen', icon: ClipboardPaste, hint: 'Strg+V', onSelect: () => void pasteInto(sid) },
       { kind: 'action', label: 'Alles auswählen', icon: MousePointerClick, onSelect: () => term.selectAll() },
       { kind: 'separator' },
       { kind: 'action', label: 'Ausgabe leeren', icon: Eraser, onSelect: () => term.clear() },
@@ -128,7 +143,7 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
     <div ref={outer} className="relative flex-1 min-w-0 min-h-0 bg-[#0f0f0f]">
       <div
         ref={holder}
-        className="absolute inset-0 pl-3 pt-2 pb-1"
+        className="absolute inset-0"
         onContextMenu={(e) => {
           e.preventDefault();
           setMenu({ x: e.clientX, y: e.clientY });
@@ -153,7 +168,30 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
           )}
         </div>
       )}
-      {menu && <ContextMenu x={menu.x} y={menu.y} entries={entries()} onClose={() => setMenu(null)} />}
+      {scrolledUp && !ended && (
+        <button
+          className="absolute bottom-3 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900/95 px-3 py-1.5 text-xs font-medium text-neutral-200 shadow-lg backdrop-blur transition-colors hover:border-primary hover:text-primary animate-fade-in"
+          onClick={() => {
+            terminalFor(sid).term.scrollToBottom();
+            terminalFor(sid).term.focus();
+          }}
+          data-action="term-bottom"
+        >
+          <ArrowDownToLine className="size-3.5" />
+          Nach unten
+        </button>
+      )}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          entries={entries()}
+          onClose={() => {
+            setMenu(null);
+            requestAnimationFrame(() => terminalFor(sid).term.focus());
+          }}
+        />
+      )}
     </div>
   );
 }

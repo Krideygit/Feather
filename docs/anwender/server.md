@@ -31,6 +31,8 @@ Das Terminal ist ein vollwertiges Terminal mit Farben und Mauswahl. Es unterstü
 
 Ein Rechtsklick öffnet das Kontextmenü mit Kopieren, Einfügen, Alles auswählen, Ausgabe leeren und Schriftgröße. Bei Verbindungsabbruch bietet Feather **Neu verbinden** an.
 
+Strg + V fügt den Inhalt der Zwischenablage ein. Das Terminal behält dabei den Fokus, danach genügt Enter. Ein Pfeil unten in der Ansicht („Nach unten“) erscheint, sobald du nach oben gescrollt hast, und springt zurück zur aktuellen Zeile. Die Bildlaufleiste am rechten Rand bleibt sichtbar.
+
 Das Terminal schlägt beim Tippen Befehle vor und weist auf Fehler hin, siehe [Vorschläge](vorschlaege.md).
 
 ## Dateiverwaltung
@@ -40,6 +42,9 @@ Links neben dem Terminal liegt die Dateiansicht des Servers.
 - Ordner durchsuchen, Dateien umbenennen, verschieben, löschen und neue Dateien oder Ordner anlegen
 - Hochladen und Herunterladen per Schaltfläche oder Drag and Drop, auch ganze Ordner
 - Dateien direkt im Editor öffnen und speichern
+- Dateien und Ordner **fixieren**: Rechtsklick › **Fixieren**. Fixierte Einträge stehen als Schnellzugriff über der Liste, in ihrem Ordner zuerst und mit Pin-Symbol. Ein Klick auf einen fixierten Ordner zeigt ihn als Wurzel. **Nur Fixierte zeigen** (Rechtsklick in die freie Fläche) blendet alles andere aus.
+- Einträge **ausblenden**: Rechtsklick › **Ausblenden**. Unten in der Statusleiste zeigt „n ausgeblendet“ sie wieder an, **Einblenden** macht es dauerhaft rückgängig.
+- **Symbol ändern …** (Rechtsklick auf einen Ordner): eines der mitgelieferten Symbole in einer Farbe oder ein eigenes Bild, zum Beispiel das Logo eines Programms. Symbole, Fixierungen und ausgeblendete Einträge gelten nur in Feather und pro Server. Auf dem Server ändert sich nichts
 - Rechte (`chmod`) über einen Dialog setzen
 - Übertragungsliste mit Fortschritt und der Möglichkeit, einzelne Übertragungen abzubrechen
 

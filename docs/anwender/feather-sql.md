@@ -48,6 +48,7 @@ Die Tabellenansicht liest 100 Zeilen pro Seite und zeigt die Gesamtzahl.
 
 - **Sortieren:** Klick auf die Spaltenüberschrift, ein weiterer Klick kehrt die Richtung um, der dritte hebt die Sortierung auf.
 - **Filtern:** Das Feld oben nimmt den Teil einer `WHERE`-Bedingung auf, zum Beispiel `id > 10 AND name LIKE 'A%'`. Mit Enter wird gefiltert. Vorschläge helfen bei Spaltennamen.
+- **Zeile auswählen:** Ein Klick auf eine Zeile markiert sie farbig. Mit Strg wählst du mehrere, mit Umschalt einen Bereich.
 - **Zelle ändern:** Doppelklick auf eine Zelle, Enter speichert, Esc verwirft.
 - **Auf NULL setzen, Zeile kopieren, Wert kopieren:** Rechtsklick auf eine Zelle.
 - **Zeile bearbeiten:** Rechtsklick › **Zeile bearbeiten …** zeigt alle Felder einer Zeile in einem Dialog.
@@ -55,6 +56,12 @@ Die Tabellenansicht liest 100 Zeilen pro Seite und zeigt die Gesamtzahl.
 - **Zeilen löschen:** Zeilen über die Nummer links markieren (mit Strg mehrere), dann **Löschen**.
 
 Zeilen lassen sich nur ändern oder löschen, wenn die Tabelle einen Primärschlüssel hat. Spalten mit Binärdaten oder sehr langen Texten sind schreibgeschützt.
+
+## Aktualisieren
+
+Der Pfeil im Kopf von Feather SQL lädt alles neu: Datenbanken, Tabellen im Baum und die Daten aller geöffneten Reiter. Der Pfeil in der Tabellenansicht lädt Struktur, Daten und Verlauf dieser Tabelle neu. Der Pfeil über dem Baum lädt Datenbanken und Tabellen neu. Änderungen, die jemand anderes oder eine Abfrage gemacht hat, erscheinen so ohne Neustart.
+
+Breite Tabellen scrollst du waagerecht, ohne dass der Rand abgeschnitten wird.
 
 ## Tabellen entwerfen
 

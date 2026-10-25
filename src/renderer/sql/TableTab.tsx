@@ -7,6 +7,7 @@ import { toast } from '../components/Toast';
 import type { HistoryEntry } from '../../shared/sql';
 import { blankColumn, dropColumnSql, specOf } from '../../shared/sqlgen';
 import { addHistory, loadHistory, noteKey, notesByCell } from '../lib/sqlhistory';
+import { invalidateSchema } from '../lib/sqlschema';
 import { ident, literal, rowsOf, runSql, serverKeyOf } from '../lib/sqlsource';
 import { useAppState } from '../lib/store';
 import { openColumnDialog } from './Designer';
@@ -163,7 +164,7 @@ function EditRowDialog({ columns, dataColumns, row, notes, keys, onSubmit, onClo
   );
 }
 
-export function TableTab({ source, db, table }: { source: string; db: string; table: string }) {
+export function TableTab({ source, db, table, refreshKey = 0 }: { source: string; db: string; table: string; refreshKey?: number }) {
   const full = `${ident(db)}.${ident(table)}`;
   const [view, setView] = useState<'data' | 'structure'>('data');
   const [columns, setColumns] = useState<Column[] | null>(null);
@@ -235,6 +236,18 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const reloadAll = useCallback(async (): Promise<void> => {
+    invalidateSchema(source);
+    await Promise.all([loadStructure(), loadData(), tracking ? refreshHistory() : Promise.resolve()]);
+  }, [source, loadStructure, loadData, tracking, refreshHistory]);
+
+  const lastRefresh = useRef(refreshKey);
+  useEffect(() => {
+    if (lastRefresh.current === refreshKey) return;
+    lastRefresh.current = refreshKey;
+    void reloadAll();
+  }, [refreshKey, reloadAll]);
 
   useEffect(() => {
     if (editing) input.current?.focus();
@@ -308,6 +321,23 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
     } catch (err) {
       fail(err);
     }
+  }
+
+  function selectRow(index: number, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): void {
+    setSelected((prev) => {
+      if (event.shiftKey && prev.size > 0) {
+        const anchor = Math.min(...prev);
+        const [from, to] = anchor <= index ? [anchor, index] : [index, anchor];
+        return new Set(Array.from({ length: to - from + 1 }, (_v, i) => from + i));
+      }
+      if (event.ctrlKey || event.metaKey) {
+        const next = new Set(prev);
+        if (next.has(index)) next.delete(index);
+        else next.add(index);
+        return next;
+      }
+      return new Set([index]);
+    });
   }
 
   async function remove(): Promise<void> {
@@ -399,7 +429,7 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
   const editable = keys.length > 0;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0" data-table-tab={`${db}.${table}`}>
+    <div className="flex flex-col flex-1 min-h-0 min-w-0" data-table-tab={`${db}.${table}`}>
       <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-neutral-800">
         <div className="flex rounded-lg bg-neutral-950/60 border border-neutral-800 p-0.5">
           {([['data', 'Daten'], ['structure', 'Struktur']] as const).map(([id, label]) => (
@@ -435,7 +465,7 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
               />
               {completion.popup}
             </form>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => void loadData()} title="Aktualisieren" aria-label="Aktualisieren">
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => void reloadAll()} title="Alles neu laden" aria-label="Aktualisieren" data-action="table-refresh">
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             {tracking && (
@@ -506,7 +536,7 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
       ) : (
         <>
           {columns && !editable && <p className="px-4 pt-2 text-xs text-amber-300">Diese Tabelle hat keinen Primärschlüssel. Zeilen lassen sich nur ansehen, nicht ändern.</p>}
-          <div className="flex-1 min-h-0 overflow-auto m-4 mt-3 card" data-grid>
+          <div className="flex-1 min-h-0 min-w-0 overflow-auto m-4 mt-3 card" data-grid>
             {!data ? (
               <div className="p-6"><Loader2 className="size-5 animate-spin text-primary" /></div>
             ) : (
@@ -527,18 +557,14 @@ export function TableTab({ source, db, table }: { source: string; db: string; ta
                 </thead>
                 <tbody>
                   {data.rows.map((row, ri) => (
-                    <tr key={ri} className={selected.has(ri) ? 'bg-primary/10' : 'odd:bg-neutral-800/20'} data-row={ri}>
-                      <td
-                        className="px-2 py-1.5 text-right text-neutral-600 cursor-pointer select-none hover:text-neutral-300"
-                        onClick={(e) =>
-                          setSelected((prev) => {
-                            const next = e.ctrlKey || e.metaKey ? new Set(prev) : new Set<number>();
-                            if (prev.has(ri) && (e.ctrlKey || e.metaKey || prev.size === 1)) next.delete(ri);
-                            else next.add(ri);
-                            return next;
-                          })
-                        }
-                      >
+                    <tr
+                      key={ri}
+                      className={`${selected.has(ri) ? 'bg-primary/20' : 'odd:bg-neutral-800/20 hover:bg-neutral-800/50'} transition-colors`}
+                      data-row={ri}
+                      data-selected={selected.has(ri)}
+                      onClick={(e) => selectRow(ri, e)}
+                    >
+                      <td className={`px-2 py-1.5 text-right cursor-pointer select-none hover:text-neutral-300 ${selected.has(ri) ? 'text-primary font-medium shadow-[inset_3px_0_0_0_var(--color-primary)]' : 'text-neutral-600'}`}>
                         {page * PAGE + ri + 1}
                       </td>
                       {row.map((value, ci) => {

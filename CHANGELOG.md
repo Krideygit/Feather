@@ -2,6 +2,22 @@
 
 Alle nennenswerten Änderungen an Feather stehen in dieser Datei. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Behoben
+
+- Terminal: Einfügen mit Strg + V funktioniert ohne zusätzlichen Klick, das Terminal behält den Fokus
+- Terminal: Bildlaufleiste dauerhaft sichtbar, Schaltfläche „Nach unten“ nach dem Scrollen
+- Feather SQL: Breite Tabellen lassen sich waagerecht scrollen, auch in schmalen Fenstern
+- Feather SQL: Aktualisieren lädt Datenbanken, Tabellen, Struktur, Daten und Verlauf neu
+- Dateiansicht: Aktualisieren und erneutes Aufklappen zeigen den aktuellen Stand
+
+### Neu
+
+- Dateiansicht: Dateien und Ordner fixieren, ausblenden und nur Fixierte anzeigen
+- Dateiansicht: eigene Symbole und Bilder für Ordner, nur in Feather sichtbar
+- Feather SQL: Zeilen in der Tabellenansicht farbig markieren
+
 ## [1.0.0] - 2026-10-23
 
 Erste öffentliche Version.

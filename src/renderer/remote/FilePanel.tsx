@@ -10,8 +10,12 @@ import {
   FolderPlus,
   FolderUp,
   House,
+  ListFilter,
   Loader2,
+  Palette,
   Pencil,
+  Pin,
+  PinOff,
   Plug,
   RefreshCw,
   Shield,
@@ -27,9 +31,11 @@ import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { confirmDialog } from '../components/Layers';
 import { toast } from '../components/Toast';
 import { formatBytes } from '../lib/format';
+import { useFilePrefs } from '../lib/fileprefs';
 import { attemptRemote, callRemote, onTransfer, reconnect, sendToTerminal, type SessionView } from '../lib/remote';
 import { openChmod } from './Chmod';
 import { openRemoteEditor } from './Editor';
+import { CustomIcon, openFolderIconPicker } from './FolderIcon';
 import { TransfersPanel } from './TransfersPanel';
 import { basename, dateText, dirname, iconFor, isFolder, isInside, joinPath, modeText, normalizePath, shellQuote, sortEntries } from './fileutils';
 
@@ -118,6 +124,9 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entries: MenuEntry[] } | null>(null);
   const [width, setWidth] = useState(600);
+  const [reveal, setReveal] = useState(false);
+  const host = session.hostId ? `host:${session.hostId}` : `adhoc:${session.username}@${session.host}:${session.port}`;
+  const files = useFilePrefs(host);
   const box = useRef<HTMLDivElement>(null);
   const anchor = useRef<string | null>(null);
   const uploadDirs = useRef(new Map<string, string>());
@@ -192,11 +201,12 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
         return;
       }
       if (edit && edit.kind !== 'rename' && edit.parent === dir) out.push({ kind: 'new', key: `n:${dir}`, parent: dir, depth, type: edit.kind });
-      const list = sortEntries(
-        state.entries.filter((e) => showHidden || !e.name.startsWith('.')),
+      const sorted = sortEntries(
+        state.entries.filter((e) => (showHidden || !e.name.startsWith('.')) && (reveal || !files.isHidden(e.path)) && (!files.prefs.onlyPinned || files.isPinned(e.path) || files.hasPinBelow(e.path))),
         sort.key,
         sort.dir,
       );
+      const list = [...sorted.filter((e) => files.isPinned(e.path)), ...sorted.filter((e) => !files.isPinned(e.path))];
       if (!list.length && !(edit && edit.kind !== 'rename' && edit.parent === dir)) out.push({ kind: 'note', key: `x:${dir}`, depth, text: 'Dieser Ordner ist leer.' });
       for (const entry of list) {
         const expanded = isFolder(entry) && open.has(entry.path);
@@ -206,7 +216,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
     };
     walk(root, 0);
     return out;
-  }, [dirs, open, root, edit, showHidden, sort]);
+  }, [dirs, open, root, edit, showHidden, sort, reveal, files.prefs]);
 
   const entryRows = useMemo(() => rows.filter((r): r is Extract<Row, { kind: 'entry' }> => r.kind === 'entry'), [rows]);
   const selectedEntries = (): RemoteEntry[] => entryRows.filter((r) => selected.has(r.entry.path)).map((r) => r.entry);
@@ -235,7 +245,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
       else next.add(entry.path);
       return next;
     });
-    if (!open.has(entry.path) && !dirs[entry.path]?.entries) void load(entry.path);
+    if (!open.has(entry.path)) void load(entry.path);
   }
 
   function expand(path: string): void {
@@ -294,6 +304,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
     const to = joinPath(parent, name);
     const ok = await attemptRemote(callRemote('fs.rename', { sid, from: entry.path, to }).then(() => true));
     if (!ok) return;
+    files.remap(entry.path, to);
     setOpen((prev) => new Set([...prev].filter((p) => !isInside(p, entry.path))));
     setSelected(new Set([to]));
     anchor.current = to;
@@ -312,6 +323,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
     });
     if (!ok) return;
     const done = await attemptRemote(callRemote('fs.remove', { sid, items: entries.map((e) => ({ path: e.path, type: e.type })) }).then(() => true));
+    if (done) files.forget(entries.map((e) => e.path));
     setOpen((prev) => new Set([...prev].filter((p) => !entries.some((e) => isInside(p, e.path)))));
     setSelected(new Set());
     await Promise.all([...new Set(entries.map((e) => dirname(e.path)))].map((p) => load(p)));
@@ -361,8 +373,10 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
     if (!clash) return;
     if (clash.length) return void toast(`„${clash[0]}“ existiert im Zielordner bereits.`, 'error');
     for (const from of moving) {
-      const ok = await attemptRemote(callRemote('fs.rename', { sid, from, to: joinPath(targetDir, basename(from)) }).then(() => true));
+      const to = joinPath(targetDir, basename(from));
+      const ok = await attemptRemote(callRemote('fs.rename', { sid, from, to }).then(() => true));
       if (!ok) break;
+      files.remap(from, to);
     }
     setOpen((prev) => new Set([...prev].filter((p) => !moving.some((m) => isInside(p, m)))));
     setSelected(new Set());
@@ -380,6 +394,9 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
     const folder = isFolder(entry);
     const canCd = session.terminal && session.shell === 'running';
     const items: MenuEntry[] = [];
+    const paths = targets.map((t) => t.path);
+    const pinned = paths.every((p) => files.isPinned(p));
+    const hiddenNow = paths.every((p) => files.isHidden(p));
     if (!many && folder) {
       items.push(
         { kind: 'action', label: 'Neue Datei', icon: FilePlus, onSelect: () => startNew(entry.path, 'file') },
@@ -396,6 +413,12 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
       if (canCd) items.push({ kind: 'action', label: 'Ordner im Terminal öffnen', icon: SquareTerminal, onSelect: () => inTerminal(dirname(entry.path)) });
       items.push({ kind: 'separator' });
     }
+    items.push(
+      { kind: 'action', label: pinned ? 'Fixierung lösen' : 'Fixieren', icon: pinned ? PinOff : Pin, onSelect: () => files.togglePins(targets.map((t) => ({ path: t.path, dir: isFolder(t) }))) },
+      { kind: 'action', label: hiddenNow ? 'Einblenden' : 'Ausblenden', icon: hiddenNow ? Eye : EyeOff, onSelect: () => files.setHidden(paths, !hiddenNow) },
+    );
+    if (!many && folder) items.push({ kind: 'action', label: 'Symbol ändern …', icon: Palette, onSelect: () => openFolderIconPicker(entry.name, files.prefs.icons[entry.path], (value) => files.setIcon(entry.path, value)) });
+    items.push({ kind: 'separator' });
     items.push({ kind: 'action', label: many ? `Herunterladen (${targets.length})` : 'Herunterladen', icon: ArrowDownToLine, onSelect: () => void download(targets) });
     if (!many) {
       items.push(
@@ -414,6 +437,9 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
       { kind: 'action', label: 'Neuer Ordner', icon: FolderPlus, onSelect: () => startNew(root, 'folder') },
       { kind: 'action', label: 'Dateien hochladen …', icon: Upload, onSelect: () => void pickAndUpload(root, 'files') },
       { kind: 'action', label: 'Ordner hochladen …', icon: FolderInput, onSelect: () => void pickAndUpload(root, 'folder') },
+      { kind: 'separator' },
+      { kind: 'action', label: files.prefs.onlyPinned ? 'Alle Einträge zeigen' : 'Nur Fixierte zeigen', icon: ListFilter, disabled: !files.prefs.pins.length && !files.prefs.onlyPinned, onSelect: () => files.setOnlyPinned(!files.prefs.onlyPinned) },
+      ...(files.prefs.hidden.length ? [{ kind: 'action' as const, label: reveal ? 'Ausgeblendete verbergen' : `Ausgeblendete anzeigen (${files.prefs.hidden.length})`, icon: reveal ? EyeOff : Eye, onSelect: () => setReveal(!reveal) }, { kind: 'action' as const, label: 'Alles wieder einblenden', icon: Eye, onSelect: () => files.clearHidden() }] : []),
       { kind: 'separator' },
       { kind: 'action', label: 'Aktualisieren', icon: RefreshCw, hint: 'F5', onSelect: refresh },
     ];
@@ -618,6 +644,45 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
         </div>
       )}
 
+      {files.prefs.pins.length > 0 && ready && (
+        <div className="shrink-0 flex flex-wrap items-center gap-1 border-b border-neutral-800 px-2 py-1.5" data-pins>
+          <Pin className="mr-1 size-3.5 text-neutral-500" aria-label="Fixiert" />
+          {files.prefs.pins.map((path) => {
+            const custom = files.prefs.icons[path];
+            const name = basename(path);
+            const known = Object.values(dirs).flatMap((d) => d.entries ?? []).find((e) => e.path === path);
+            const asFolder = known ? isFolder(known) : files.prefs.kinds[path] !== 'file';
+            const { Icon, tone } = known ? iconFor(known, false) : iconFor({ name, type: asFolder ? 'dir' : 'file', linkTo: null } as RemoteEntry, false);
+            return (
+              <button
+                key={path}
+                className="inline-flex max-w-[180px] items-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-primary/60 hover:bg-neutral-800"
+                title={path}
+                onClick={() => (asFolder ? navigate(path) : openRemoteEditor(sid, path, () => void load(dirname(path))))}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    entries: [
+                      { kind: 'action', label: asFolder ? 'Als Wurzel anzeigen' : 'Bearbeiten', icon: asFolder ? FolderUp : Pencil, onSelect: () => (asFolder ? navigate(path) : openRemoteEditor(sid, path, () => void load(dirname(path)))) },
+                      { kind: 'action', label: 'Pfad kopieren', icon: ClipboardCopy, onSelect: () => void window.feather.copy(path) },
+                      ...(asFolder ? [{ kind: 'action' as const, label: 'Symbol ändern …', icon: Palette, onSelect: () => openFolderIconPicker(name, custom, (value) => files.setIcon(path, value)) }] : []),
+                      { kind: 'separator' },
+                      { kind: 'action', label: 'Fixierung lösen', icon: PinOff, onSelect: () => files.togglePins([{ path, dir: asFolder }]) },
+                    ],
+                  });
+                }}
+                data-pin={path}
+              >
+                {custom && asFolder ? <CustomIcon value={custom} className="size-3.5" /> : <Icon className={`size-3.5 shrink-0 ${tone}`} />}
+                <span className="truncate">{name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {session.filesError ? (
         <div className="p-3">
           <Notice tone="warn">{session.filesError}</Notice>
@@ -703,7 +768,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
                     activate(entry);
                   }}
                   onContextMenu={(e) => onRowContext(e, entry)}
-                  className={`grid items-center gap-2 px-3 h-7 cursor-default select-none transition-colors duration-100 ${target ? 'bg-primary/25 ring-1 ring-inset ring-primary/60' : isSelected ? 'bg-primary/15' : 'hover:bg-neutral-800/60'}`}
+                  className={`grid items-center gap-2 px-3 h-7 cursor-default select-none transition-colors duration-100 ${files.isHidden(entry.path) ? 'opacity-45' : ''} ${target ? 'bg-primary/25 ring-1 ring-inset ring-primary/60' : isSelected ? 'bg-primary/15' : 'hover:bg-neutral-800/60'}`}
                   style={{ gridTemplateColumns: template }}
                 >
                   <div className="flex items-center gap-1.5 min-w-0" style={{ paddingLeft: 8 + depth * 14 }}>
@@ -722,7 +787,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
                     ) : (
                       <span className="size-4 shrink-0" />
                     )}
-                    <Icon className={`size-4 ${tone}`} data-feather-icon={folder ? 'folder' : 'file'} />
+                    {folder && files.prefs.icons[entry.path] ? <CustomIcon value={files.prefs.icons[entry.path] as string} /> : <Icon className={`size-4 ${tone}`} data-feather-icon={folder ? 'folder' : 'file'} />}
                     {renaming ? (
                       <NameInput initial={entry.name} isFile={!folder} onCommit={(name) => void rename(entry, name)} onCancel={() => setEdit(null)} />
                     ) : (
@@ -730,6 +795,7 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
                         {entry.name}
                       </span>
                     )}
+                    {files.isPinned(entry.path) && <Pin className="size-3 shrink-0 text-primary" aria-label="Fixiert" data-pinned />}
                   </div>
                   {columns >= 2 && <span className="text-right text-xs text-neutral-500 tabular-nums">{folder ? '' : formatBytes(entry.size)}</span>}
                   {columns >= 3 && <span className="text-xs text-neutral-500 tabular-nums truncate">{dateText(entry.mtime)}</span>}
@@ -752,6 +818,16 @@ export function FilePanel({ session }: { session: SessionView; visible: boolean 
               <span className="text-primary">
                 {chosen.length} ausgewählt{chosenSize > 0 ? ` · ${formatBytes(chosenSize)}` : ''}
               </span>
+            )}
+            {files.prefs.hidden.length > 0 && (
+              <button className="text-neutral-400 underline decoration-dotted underline-offset-2 hover:text-primary" onClick={() => setReveal(!reveal)} data-action="files-reveal">
+                {reveal ? 'Ausgeblendete verbergen' : `${files.prefs.hidden.length} ausgeblendet`}
+              </button>
+            )}
+            {files.prefs.onlyPinned && (
+              <button className="text-primary underline decoration-dotted underline-offset-2" onClick={() => files.setOnlyPinned(false)} data-action="files-all">
+                Nur Fixierte, alle zeigen
+              </button>
             )}
             <span className="flex-1" />
             <span className="font-mono truncate max-w-[50%]" title={root}>{root}</span>

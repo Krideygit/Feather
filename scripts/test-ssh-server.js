@@ -72,7 +72,8 @@ function startSshServer(serverRoot, hostKey, clientPublicKey, options = {}) {
             for (const ch of d.toString()) {
               if (ch === '\r' || ch === '\n') {
                 if (line === 'exit') return stream.close();
-                const reply = options.echo && /^(htop|ncdu|nope-\w+)$/.test(line) ? `-bash: ${line}: command not found` : `ECHO:${line}`;
+                const many = options.echo && line === 'lines' ? Array.from({ length: 120 }, (_v, i) => `Zeile ${i + 1}`).join(String.fromCharCode(13, 10)) : null;
+                const reply = many ?? (options.echo && /^(htop|ncdu|nope-\w+)$/.test(line) ? `-bash: ${line}: command not found` : `ECHO:${line}`);
                 stream.write(`\r\n${reply}\r\n${prompt}`);
                 line = '';
               } else if (options.echo && ch === '\x7f') {

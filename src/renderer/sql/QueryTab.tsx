@@ -18,7 +18,7 @@ function loadText(id: string, initial: string): string {
   }
 }
 
-export function QueryTab({ source, tabId, database, initial, visible }: { source: string; tabId: string; database: string; initial: string; visible: boolean }) {
+export function QueryTab({ source, tabId, database, initial, visible, refreshKey = 0 }: { source: string; tabId: string; database: string; initial: string; visible: boolean; refreshKey?: number }) {
   const [text, setText] = useState(() => loadText(tabId, initial));
   const [db, setDb] = useState(database);
   const [dbs, setDbs] = useState<string[]>([]);
@@ -37,7 +37,7 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
     return () => {
       alive = false;
     };
-  }, [source]);
+  }, [source, refreshKey]);
 
   useEffect(() => {
     if (visible) editor.current?.focus();
@@ -80,7 +80,7 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 p-4 gap-3" data-query-tab={tabId}>
+    <div className="flex flex-col flex-1 min-h-0 min-w-0 p-4 gap-3" data-query-tab={tabId}>
       <div className="flex items-center gap-2 shrink-0">
         <select className="input w-auto! min-w-44" value={db} onChange={(e) => setDb(e.target.value)} title="Standard-Datenbank">
           <option value="">Keine Datenbank gewählt</option>
@@ -113,7 +113,7 @@ export function QueryTab({ source, tabId, database, initial, visible }: { source
       />
       {completion.popup}
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto">{output && <Results output={output} />}</div>
+      <div className="flex-1 min-h-0 min-w-0 overflow-auto">{output && <Results output={output} />}</div>
     </div>
   );
 }

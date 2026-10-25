@@ -431,6 +431,7 @@ interface CaptureStep {
   log?: boolean;
   close?: boolean;
   connect?: [string, string];
+  wheel?: [number, number, number];
 }
 
 function captureAndExit(window: BrowserWindow, file: string): void {
@@ -474,6 +475,10 @@ async function runCapture(window: BrowserWindow, target: string): Promise<void> 
         if (step.log) console.log('[step]', typeof out === 'string' ? out : JSON.stringify(out));
       }
       if (step.connect) await dragBetween(window, step.connect[0], step.connect[1]);
+      if (step.wheel) {
+        const [x, y, deltaY] = step.wheel;
+        window.webContents.sendInputEvent({ type: 'mouseWheel', x, y, deltaX: 0, deltaY, canScroll: true });
+      }
       if (step.close) {
         window.close();
         await wait(300);

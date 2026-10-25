@@ -1,4 +1,4 @@
-import { Cable, CircleAlert, Database, Loader2, Plus, RotateCw, Server, Table2, Unplug, X } from 'lucide-react';
+import { Cable, CircleAlert, Database, Loader2, Plus, RefreshCw, RotateCw, Server, Table2, Unplug, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { rowsOf, runSql, useSqlSources } from '../lib/sqlsource';
 import { QueryTab } from './QueryTab';
@@ -32,6 +32,7 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [active, setActive] = useState('');
   const [reload, setReload] = useState(0);
+  const [refresh, setRefresh] = useState(0);
   const counter = useRef(0);
   const attempt = useRef(0);
 
@@ -136,6 +137,9 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
           <p className="text-[11px] text-neutral-500 font-mono truncate" data-notranslate>{source?.detail} · {status.version}</p>
         </div>
         <span className="flex-1" />
+        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setRefresh((n) => n + 1)} title="Alles neu laden: Datenbanken, Tabellen und geöffnete Daten" aria-label="Aktualisieren" data-action="sql-refresh">
+          <RefreshCw className="size-4" />
+        </button>
         <button className="btn btn-outline btn-sm" onClick={() => newQuery('')} data-action="sql-new-query">
           <Plus className="size-3.5" />
           Neue Abfrage
@@ -149,7 +153,7 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
       </div>
       <div className="flex flex-1 min-h-0">
         <aside className={`${compact ? 'w-56' : 'w-72'} shrink-0 border-r border-neutral-800 bg-neutral-900/30`}>
-          <Tree source={sourceId} onOpenTable={openTable} onQuery={newQuery} onDropped={dropped} reloadKey={reload} />
+          <Tree source={sourceId} onOpenTable={openTable} onQuery={newQuery} onDropped={dropped} reloadKey={reload} refreshKey={refresh} />
         </aside>
         <div className="flex flex-1 min-w-0 flex-col">
           <div role="tablist" className="shrink-0 flex items-stretch overflow-x-auto border-b border-neutral-800 bg-neutral-900/40 px-2">
@@ -182,8 +186,8 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
             </div>
           )}
           {tabs.map((t) => (
-            <div key={t.id} className={active === t.id ? 'flex flex-1 min-h-0 flex-col animate-fade-in' : 'hidden'}>
-              {t.kind === 'table' ? <TableTab source={sourceId} db={t.db} table={t.table} /> : <QueryTab source={sourceId} tabId={`${sourceId}.${t.id}`} database={t.db} initial={t.sql} visible={active === t.id} />}
+            <div key={t.id} className={active === t.id ? 'flex flex-1 min-h-0 min-w-0 flex-col animate-fade-in' : 'hidden'}>
+              {t.kind === 'table' ? <TableTab source={sourceId} db={t.db} table={t.table} refreshKey={refresh} /> : <QueryTab source={sourceId} tabId={`${sourceId}.${t.id}`} database={t.db} initial={t.sql} visible={active === t.id} refreshKey={refresh} />}
             </div>
           ))}
         </div>
