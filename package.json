@@ -1,7 +1,7 @@
 {
   "name": "feather",
   "productName": "Feather®",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Lokale Services, Server-Terminal, Dateiverwaltung und SQL-Client in einer Anwendung.",
   "main": "dist/main/main.js",
   "author": "Kridey",

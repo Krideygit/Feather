@@ -2,7 +2,7 @@
 
 Alle nennenswerten Änderungen an Feather stehen in dieser Datei. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht]
+## [1.0.1] - 2026-10-25
 
 ### Behoben
 
