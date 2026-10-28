@@ -2,6 +2,24 @@
 
 Alle nennenswerten Änderungen an Feather stehen in dieser Datei. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Neu
+
+- Terminal: Shortcuts als Buttons rechts am Terminal, die einen hinterlegten Befehl ausführen, mit Vorlagen, Symbolen und optionaler Rückfrage
+- Editor: Syntaxfarben für Code und Konfigurationsdateien, Suche mit Strg + F
+- Themen: Hintergrund, Textfarbe, Symbolfarbe und Größe einzeln einstellbar
+- Themen: animierte Farbverläufe mit frei wählbaren Farben
+- Ruhemodus: Nach einiger Zeit ohne Eingabe zeigt Feather einen schlafenden Roboter und pausiert Animationen
+- Package Mailpit: lokaler Mail-Server mit Postfach im Browser
+- Package Discord-Server: Discord-Bots aus Knoten bauen, im Simulator testen und per SSH auf einem Server bereitstellen
+
+### Behoben
+
+- Feather SQL im Server-Modul „Datenbanken“: Breite Tabellen lassen sich waagerecht scrollen
+- Terminal: Eingaben erscheinen ohne spürbare Verzögerung, auch bei Servern mit höherer Latenz
+- Minecraft-Installation: Der Schalter für die EULA ist klickbar, der Link „EULA lesen“ fängt den Klick nicht mehr ab
+
 ## [1.0.1] - 2026-10-25
 
 ### Behoben

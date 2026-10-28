@@ -33,7 +33,7 @@ const WEB_TABS: { id: Tab; label: string }[] = [
 function DatabasesTab({ session, state }: { session: SessionView; state: ModuleState }) {
   const [view, setView] = useState<'sql' | 'list'>('sql');
   return (
-    <div className="flex flex-1 min-h-0 flex-col">
+    <div className="flex flex-1 min-h-0 min-w-0 flex-col">
       <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-neutral-800">
         {([['sql', 'Feather SQL'], ['list', 'Einfache Liste']] as const).map(([id, label]) => (
           <button
@@ -46,7 +46,7 @@ function DatabasesTab({ session, state }: { session: SessionView; state: ModuleS
           </button>
         ))}
       </div>
-      {view === 'sql' ? <MariaSql session={session} state={state} /> : <div className="flex-1 min-h-0 overflow-y-auto"><MariaDatabases session={session} state={state} /></div>}
+      {view === 'sql' ? <MariaSql session={session} state={state} /> : <div className="flex-1 min-h-0 min-w-0 overflow-auto"><MariaDatabases session={session} state={state} /></div>}
     </div>
   );
 }
@@ -75,7 +75,7 @@ export function ModuleDetail({ session, module, sys, onBack }: { session: Sessio
   const busyText = action === 'start' ? 'Startet …' : action === 'stop' ? 'Stoppt …' : action === 'restart' ? 'Startet neu …' : '';
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col animate-fade-in" data-module-detail={module}>
+    <div className="flex flex-1 min-h-0 min-w-0 flex-col animate-fade-in" data-module-detail={module}>
       <div className="shrink-0 px-6 pt-4 pb-4 border-b border-neutral-800">
         <button className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-100 transition-colors mb-3" onClick={onBack} data-action="module-back">
           <ArrowLeft className="size-3.5" />
@@ -128,7 +128,7 @@ export function ModuleDetail({ session, module, sys, onBack }: { session: Sessio
         {busyText && <p className="mt-2 text-xs text-amber-300 animate-fade-in">{busyText}</p>}
       </div>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col">
         {tab === 'overview' && (module === 'mariadb' ? <MariaOverview session={session} state={state} /> : <WebOverview session={session} module={module} state={state} sys={sys} />)}
         {tab === 'databases' && <DatabasesTab session={session} state={state} />}
         {tab === 'users' && <MariaUsers session={session} state={state} />}

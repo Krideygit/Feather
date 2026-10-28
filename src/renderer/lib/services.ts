@@ -15,6 +15,7 @@ export const TYPES: Record<ServiceType, TypeInfo> = {
   minecraft: { label: 'Minecraft (Vanilla)', category: 'package', defaultPort: 25565 },
   paper: { label: 'Minecraft (Paper)', category: 'package', defaultPort: 25565 },
   fivem: { label: 'FiveM', category: 'package', defaultPort: 30120 },
+  mailpit: { label: 'Mailpit', category: 'package', defaultPort: 8025 },
 };
 
 export interface CategoryInfo {
@@ -44,7 +45,7 @@ export const CATEGORIES: Record<Category, CategoryInfo> = {
     emptyText: 'Wähle einen Ordner, und Feather liefert ihn über Nginx oder Apache unter localhost aus.',
   },
   package: {
-    types: ['minecraft', 'paper', 'fivem'],
+    types: ['minecraft', 'paper', 'fivem', 'mailpit'],
     singular: 'Package',
     title: 'Packages',
     description: 'Fertige Server und Werkzeuge, nach Kategorien sortiert.',

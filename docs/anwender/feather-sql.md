@@ -61,7 +61,7 @@ Zeilen lassen sich nur ändern oder löschen, wenn die Tabelle einen Primärschl
 
 Der Pfeil im Kopf von Feather SQL lädt alles neu: Datenbanken, Tabellen im Baum und die Daten aller geöffneten Reiter. Der Pfeil in der Tabellenansicht lädt Struktur, Daten und Verlauf dieser Tabelle neu. Der Pfeil über dem Baum lädt Datenbanken und Tabellen neu. Änderungen, die jemand anderes oder eine Abfrage gemacht hat, erscheinen so ohne Neustart.
 
-Breite Tabellen scrollst du waagerecht, ohne dass der Rand abgeschnitten wird.
+Breite Tabellen scrollst du waagerecht, ohne dass der Rand abgeschnitten wird. Das gilt auch für Feather SQL im Server-Modul **Datenbanken**.
 
 ## Tabellen entwerfen
 

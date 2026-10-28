@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PageHeader } from '../components/Bits';
 import { ServiceCard } from '../components/ServiceCard';
-import { openCreateDialog, openPackageChooser } from '../dialogs/CreateService';
+import { openPackage, openPackageChooser } from '../dialogs/CreateService';
 import { openRuntimesDialog } from '../dialogs/Runtimes';
 import { GROUPS, PACKAGES, isAvailable, type PackageDef } from '../lib/packages';
 import { useAppState } from '../lib/store';
@@ -22,8 +22,8 @@ function PackageCard({ pkg }: { pkg: PackageDef }) {
       </div>
       {available && (
         <div className="mt-4 pt-3 border-t border-neutral-800">
-          <button className="btn btn-primary btn-sm" onClick={() => openCreateDialog('package', pkg)} data-package={pkg.id}>
-            Installieren
+          <button className="btn btn-primary btn-sm" onClick={() => openPackage(pkg)} data-package={pkg.id}>
+            {pkg.tool ? 'Öffnen' : 'Installieren'}
           </button>
         </div>
       )}

@@ -55,6 +55,7 @@ public final class Drivers {
             case "apache" -> APACHE;
             case "minecraft", "paper" -> PackageDrivers.MINECRAFT;
             case "fivem" -> PackageDrivers.FIVEM;
+            case "mailpit" -> PackageDrivers.MAILPIT;
             default -> throw new IllegalArgumentException("Unbekannter Typ: " + s.type);
         };
     }

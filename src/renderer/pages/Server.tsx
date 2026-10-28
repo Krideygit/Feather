@@ -56,7 +56,7 @@ export function ServerPage() {
   const active = useRemote((s) => s.active);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col" data-feather-area="server">
+    <div className="flex flex-1 min-h-0 min-w-0 flex-col" data-feather-area="server">
       <div role="tablist" className="flex items-stretch shrink-0 overflow-x-auto border-b border-neutral-800 bg-neutral-900/40 px-2">
         <Tab active={active === 'home'} onSelect={() => setActiveTab('home')} label="Verbindungen">
           <LayoutGrid className="size-4" />
@@ -84,7 +84,7 @@ export function ServerPage() {
         <PluginButtons location="server.tabbar" className="shrink-0 pl-2" />
       </div>
 
-      <div className="relative flex flex-1 min-h-0">
+      <div className="relative flex flex-1 min-h-0 min-w-0">
         {active === 'home' && <HostsView />}
         {pending.some((p) => p.key === active) && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 animate-fade-in text-neutral-400">

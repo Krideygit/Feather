@@ -76,7 +76,7 @@ export function Workspace({ session, visible }: { session: SessionView; visible:
   }
 
   return (
-    <div ref={box} className={`flex flex-1 min-h-0 ${dragging ? 'select-none' : ''}`}>
+    <div ref={box} className={`flex flex-1 min-h-0 min-w-0 ${dragging ? 'select-none' : ''}`}>
       <div className="w-9 shrink-0 border-r border-neutral-800 flex flex-col items-center py-2 bg-neutral-900/40">
         <button
           className="btn btn-ghost btn-icon btn-sm"

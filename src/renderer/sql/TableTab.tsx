@@ -430,7 +430,7 @@ export function TableTab({ source, db, table, refreshKey = 0 }: { source: string
 
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-0" data-table-tab={`${db}.${table}`}>
-      <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-neutral-800">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-neutral-800">
         <div className="flex rounded-lg bg-neutral-950/60 border border-neutral-800 p-0.5">
           {([['data', 'Daten'], ['structure', 'Struktur']] as const).map(([id, label]) => (
             <button key={id} className={`px-3 h-7 rounded-md text-[13px] font-medium transition-colors ${view === id ? 'bg-primary/15 text-primary' : 'text-neutral-400 hover:text-neutral-100'}`} onClick={() => setView(id)} data-view-mode={id}>
@@ -441,7 +441,7 @@ export function TableTab({ source, db, table, refreshKey = 0 }: { source: string
         {view === 'data' && (
           <>
             <form
-              className="relative flex-1 min-w-0"
+              className="relative flex-1 min-w-[150px]"
               onSubmit={(e) => {
                 e.preventDefault();
                 completion.hide();

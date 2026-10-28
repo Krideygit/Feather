@@ -1,10 +1,17 @@
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { bracketMatching, indentOnInput, indentUnit } from '@codemirror/language';
+import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
+import { Compartment, EditorState, type Text } from '@codemirror/state';
+import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { FileText, Loader2, Save, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FileContent } from '../../shared/remote';
 import { confirmDialog, openLayer } from '../components/Layers';
 import { toast } from '../components/Toast';
-import { attemptRemote, callRemote } from '../lib/remote';
+import { languageLabel, loadLanguage } from '../lib/editorlang';
+import { editorTheme } from '../lib/editortheme';
 import { formatBytes } from '../lib/format';
+import { attemptRemote, callRemote } from '../lib/remote';
 
 interface Props {
   sid: string;
@@ -14,16 +21,19 @@ interface Props {
 }
 
 function EditorDialog({ sid, path, onClose, onSaved }: Props) {
-  const [loaded, setLoaded] = useState<{ original: string; crlf: boolean; size: number } | null>(null);
-  const [text, setText] = useState('');
+  const [loaded, setLoaded] = useState<{ crlf: boolean; size: number } | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
+  const [lines, setLines] = useState(1);
   const [closing, setClosing] = useState(false);
-  const area = useRef<HTMLTextAreaElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const view = useRef<EditorView | null>(null);
+  const initial = useRef('');
+  const saved = useRef<Text | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
-  const gutter = useRef<HTMLDivElement>(null);
-  const dirty = loaded !== null && text !== loaded.original;
+  const ready = loaded !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -31,10 +41,8 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
       (content) => {
         if (cancelled) return;
         const crlf = content.text.includes('\r\n');
-        const normalized = crlf ? content.text.replace(/\r\n/g, '\n') : content.text;
-        setLoaded({ original: normalized, crlf, size: content.size });
-        setText(normalized);
-        requestAnimationFrame(() => area.current?.focus());
+        initial.current = crlf ? content.text.replace(/\r\n/g, '\n') : content.text;
+        setLoaded({ crlf, size: content.size });
       },
       (err: Error) => {
         toast(err.message, 'error');
@@ -46,18 +54,72 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
     };
   }, [sid, path]);
 
+  useEffect(() => {
+    if (!ready || !host.current) return;
+    const language = new Compartment();
+    const state = EditorState.create({
+      doc: initial.current,
+      extensions: [
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        highlightActiveLine(),
+        history(),
+        drawSelection(),
+        indentOnInput(),
+        bracketMatching(),
+        highlightSelectionMatches(),
+        indentUnit.of('  '),
+        EditorState.tabSize.of(4),
+        keymap.of([indentWithTab, ...searchKeymap, ...historyKeymap, ...defaultKeymap]),
+        editorTheme,
+        language.of([]),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            setDirty(saved.current ? !update.state.doc.eq(saved.current) : true);
+            setLines(update.state.doc.lines);
+          }
+          if (update.docChanged || update.selectionSet) {
+            const head = update.state.selection.main.head;
+            const line = update.state.doc.lineAt(head);
+            setCursor({ line: line.number, column: head - line.from + 1 });
+          }
+        }),
+      ],
+    });
+    saved.current = state.doc;
+    setLines(state.doc.lines);
+    const editor = new EditorView({ state, parent: host.current });
+    view.current = editor;
+    editor.focus();
+    let alive = true;
+    const firstLine = initial.current.slice(0, initial.current.indexOf('\n') === -1 ? 200 : initial.current.indexOf('\n'));
+    void loadLanguage(path, firstLine).then((ext) => {
+      if (alive && ext) editor.dispatch({ effects: language.reconfigure(ext) });
+    });
+    return () => {
+      alive = false;
+      editor.destroy();
+      view.current = null;
+    };
+  }, [ready, path]);
+
   const save = useCallback(async (): Promise<boolean> => {
-    if (!loaded || saving) return false;
+    const editor = view.current;
+    if (!loaded || !editor || saving) return false;
     setSaving(true);
+    const doc = editor.state.doc;
+    const text = doc.toString();
     const data = loaded.crlf ? text.replace(/\n/g, '\r\n') : text;
     const ok = await attemptRemote(callRemote('fs.write', { sid, path, text: data }).then(() => true));
     setSaving(false);
     if (!ok) return false;
-    setLoaded({ ...loaded, original: text, size: new TextEncoder().encode(data).length });
+    saved.current = doc;
+    setDirty(!editor.state.doc.eq(doc));
+    setLoaded({ ...loaded, size: new TextEncoder().encode(data).length });
     toast('Datei gespeichert.', 'success');
     onSaved();
     return true;
-  }, [loaded, saving, text, sid, path, onSaved]);
+  }, [loaded, saving, sid, path, onSaved]);
 
   const leave = useCallback(async (): Promise<void> => {
     if (dirty) {
@@ -69,11 +131,11 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
   }, [dirty]);
 
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent): void => {
+    const onKey = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         void save();
-      } else if (e.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) {
+      } else if (e.key === 'Escape' && !document.querySelector('[aria-modal="true"]') && !document.querySelector('.cm-panel')) {
         e.stopPropagation();
         void leave();
       }
@@ -81,26 +143,6 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
   }, [save, leave]);
-
-  const lines = useMemo(() => text.split('\n').length, [text]);
-  const numbers = useMemo(() => Array.from({ length: lines }, (_, i) => i + 1).join('\n'), [lines]);
-
-  function track(): void {
-    const el = area.current;
-    if (!el) return;
-    const before = el.value.slice(0, el.selectionStart);
-    const line = before.split('\n').length;
-    setCursor({ line, column: before.length - before.lastIndexOf('\n') });
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key !== 'Tab') return;
-    event.preventDefault();
-    const el = event.currentTarget;
-    const { selectionStart: from, selectionEnd: to } = el;
-    el.setRangeText('\t', from, to, 'end');
-    setText(el.value);
-  }
 
   const name = path.split('/').pop() ?? path;
 
@@ -124,27 +166,8 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
             <X className="size-4" />
           </button>
         </header>
-        {loaded ? (
-          <div className="flex flex-1 min-h-0 bg-[#0f0f0f] font-mono text-[13px] leading-[20px]">
-            <div ref={gutter} aria-hidden className="shrink-0 overflow-hidden select-none text-right text-neutral-600 py-3 pl-4 pr-3 border-r border-neutral-800/80 whitespace-pre">
-              {numbers}
-            </div>
-            <textarea
-              ref={area}
-              value={text}
-              spellCheck={false}
-              wrap="off"
-              className="flex-1 min-w-0 resize-none bg-transparent text-neutral-200 outline-none py-3 px-4 whitespace-pre overflow-auto"
-              style={{ tabSize: 4 }}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={onKeyDown}
-              onKeyUp={track}
-              onClick={track}
-              onSelect={track}
-              onScroll={(e) => gutter.current && (gutter.current.scrollTop = e.currentTarget.scrollTop)}
-              data-bind="editor"
-            />
-          </div>
+        {ready ? (
+          <div ref={host} className="flex-1 min-h-0 min-w-0 overflow-hidden bg-neutral-950" data-bind="editor" />
         ) : (
           <div className="flex-1 grid place-items-center text-neutral-500">
             <Loader2 className="size-6 animate-spin text-primary" />
@@ -155,8 +178,9 @@ function EditorDialog({ sid, path, onClose, onSaved }: Props) {
           <span>{lines} Zeilen</span>
           {loaded && <span>{formatBytes(loaded.size)}</span>}
           {loaded && <span>{loaded.crlf ? 'Windows (CRLF)' : 'Unix (LF)'}</span>}
+          {loaded && <span data-notranslate>{languageLabel(path)}</span>}
           <span className="flex-1" />
-          <span>Strg + S speichert</span>
+          <span>Strg + S speichert · Strg + F sucht</span>
         </footer>
       </div>
     </div>

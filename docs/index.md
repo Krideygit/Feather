@@ -11,6 +11,7 @@ Diese Dokumentation gilt für Version 1.0. The developer documentation is also a
 | [Installation](anwender/installation.md) | Voraussetzungen, Installer, Speicherorte, Deinstallation |
 | [Erste Schritte](anwender/erste-schritte.md) | Einrichtungsassistent, Aufbau der Oberfläche, Profile |
 | [Lokale Services](anwender/services.md) | Datenbanken, Webserver und Packages auf dem eigenen Rechner |
+| [Discord-Bots](anwender/discord-bots.md) | Bots aus Knoten bauen, im Simulator testen und auf einem Server bereitstellen |
 | [Server](anwender/server.md) | Verbindungen, Terminal, Dateiverwaltung, Server-Module |
 | [Feather SQL](anwender/feather-sql.md) | Datenbanken ansehen und bearbeiten, Tabellen entwerfen, Änderungsverlauf |
 | [Vorschläge im Terminal und in SQL](anwender/vorschlaege.md) | Autovervollständigung, Fehlerhinweise, Tastenkürzel |

@@ -87,6 +87,17 @@ export function OverviewTab({ service: svc }: { service: Service }) {
               </button>
             </div>
           </>
+        ) : svc.type === 'mailpit' ? (
+          <>
+            <Row label="Postfach">
+              <span className="flex items-center gap-1 min-w-0">
+                <button className="text-sm text-primary hover:underline font-mono truncate" onClick={() => openInBrowser(svc)} data-action="mailpit-open">{conn.url}</button>
+                <CopyButton value={conn.url} label="URL" />
+              </span>
+            </Row>
+            <CopyRow label="SMTP-Server" value={`localhost:${conn.smtp ?? 1025}`} />
+            <p className="hint">Trage in deiner Anwendung als Mail-Server localhost mit dem SMTP-Port ein, ohne Anmeldung und ohne Verschlüsselung. Alle Mails landen im Postfach und werden nicht wirklich versendet.</p>
+          </>
         ) : svc.category === 'package' ? (
           <>
             <CopyRow label="Server-Adresse" value={conn.url} />
@@ -126,7 +137,7 @@ export function OverviewTab({ service: svc }: { service: Service }) {
             <Row label="Prozess-ID"><span className="text-sm text-neutral-100 font-mono">{svc.pid}</span></Row>
           </>
         )}
-        {svc.category === 'package' && (
+        {svc.category === 'package' && svc.type !== 'mailpit' && (
           <>
             {svc.type !== 'fivem' && <Row label="Arbeitsspeicher"><span className="text-sm text-neutral-100">{String(svc.options.memory ?? '')}</span></Row>}
             <Row label="Max. Spieler"><span className="text-sm text-neutral-100">{String(svc.options.maxPlayers ?? svc.options.maxClients ?? '')}</span></Row>

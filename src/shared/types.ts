@@ -1,5 +1,5 @@
 
-export type ServiceType = 'mariadb' | 'nginx' | 'apache' | 'minecraft' | 'paper' | 'fivem';
+export type ServiceType = 'mariadb' | 'nginx' | 'apache' | 'minecraft' | 'paper' | 'fivem' | 'mailpit';
 export type Category = 'database' | 'webserver' | 'package';
 export type OptionValue = string | number | boolean;
 export type Status = 'running' | 'starting' | 'stopping' | 'stopped' | 'error';
@@ -9,6 +9,7 @@ export interface Connection {
   port: number;
   user?: string;
   password?: string;
+  smtp?: number;
   url: string;
 }
 
@@ -102,6 +103,18 @@ export interface Theme {
   accent: string;
   hue: number;
   saturation: number;
+  background?: string;
+  text?: string;
+  icon?: string;
+  scale?: number;
+  animation?: ThemeAnimation;
+}
+
+export interface ThemeAnimation {
+  enabled: boolean;
+  colors: string[];
+  speed: number;
+  target: 'accent' | 'glow' | 'both';
 }
 
 export interface SaveeyeSettings {
@@ -121,6 +134,11 @@ export interface TerminalSettings {
   hints: boolean;
 }
 
+export interface IdleSettings {
+  enabled: boolean;
+  minutes: number;
+}
+
 export interface Settings {
   runInBackground: boolean;
   theme: string;
@@ -130,6 +148,7 @@ export interface Settings {
   database: DatabaseSettings;
   terminal: TerminalSettings;
   saveeye: SaveeyeSettings;
+  idle: IdleSettings;
 }
 
 export interface DbInfo {
@@ -256,7 +275,7 @@ export interface FeatherBridge {
   onSaveeyeCapture(callback: (notice: { active: boolean; sources: string[]; transient: boolean }) => void): () => void;
   onWindowFocus(callback: (focused: boolean) => void): () => void;
   saveeyeAnswer(allow: boolean): void;
-  setTitleBar(color: string, symbol: string): void;
+  setTitleBar(color: string, symbol: string, zoom?: number): void;
   backupCreate(options: { password: string; includeData: boolean }): Promise<BridgeReply<BackupResultView | null>>;
   backupPick(): Promise<BridgeReply<{ file: string; info: BackupInfoView } | null>>;
   backupRestore(options: { file: string; password: string }): Promise<BridgeReply<RestoreReportView>>;

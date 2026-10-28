@@ -58,6 +58,37 @@
 
 @layer base {
   :root { --on-primary: #0a0a0a; }
+  :root {
+    --syn-text: var(--color-neutral-200);
+    --syn-gutter: var(--color-neutral-600);
+    --syn-line: rgb(128 128 128 / 0.18);
+    --syn-active: rgb(128 128 128 / 0.1);
+    --syn-selection: rgb(14 165 233 / 0.32);
+    --syn-match: rgb(250 204 21 / 0.22);
+    --syn-keyword: #c792ea;
+    --syn-string: #a5d67f;
+    --syn-number: #f78c6c;
+    --syn-comment: #697098;
+    --syn-function: #82aaff;
+    --syn-type: #ffcb6b;
+    --syn-property: #7fdbca;
+    --syn-tag: #f07178;
+    --syn-punct: #89ddff;
+    --syn-variable: var(--color-neutral-200);
+    --syn-meta: #c3a6ff;
+  }
+  :root[data-mode='light'] {
+    --syn-keyword: #8a3fc7;
+    --syn-string: #3d7a1c;
+    --syn-number: #c2410c;
+    --syn-comment: #7a8194;
+    --syn-function: #1d5fd1;
+    --syn-type: #946200;
+    --syn-property: #0b7a6c;
+    --syn-tag: #c0262d;
+    --syn-punct: #0a7a96;
+    --syn-meta: #6d4fc2;
+  }
   html { background: var(--color-bg); }
   html, body { height: 100%; overflow: hidden; }
   body { font-family: var(--font-sans); font-size: 14px; }
@@ -155,3 +186,47 @@
 .xterm .xterm-scrollable-element > .scrollbar.invisible { opacity: 0.7 !important; pointer-events: auto !important; }
 .xterm .xterm-scrollable-element > .scrollbar.invisible.fade { transition: none; }
 [data-terminal] .xterm { padding: 8px 0 4px 12px; }
+
+html[data-idle='true'] *,
+html[data-idle='true'] *::before,
+html[data-idle='true'] *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+  backdrop-filter: none !important;
+}
+html .idle-robot,
+html .idle-robot * {
+  animation-play-state: running !important;
+}
+.idle-breathe { transform-origin: 60px 100px; animation: idle-breathe 3.6s ease-in-out infinite; }
+.idle-blink { animation: idle-blink 2.4s ease-in-out infinite; }
+.idle-z { font-size: 14px; opacity: 0; animation: idle-z 3.6s ease-in infinite; }
+.idle-z2 { animation-delay: 1.2s; }
+.idle-z3 { animation-delay: 2.4s; }
+.idle-enter { animation: idle-in 0.5s ease-out both; }
+.idle-leave { animation: idle-out 0.7s ease-in both; }
+@keyframes idle-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.025, 0.975); } }
+@keyframes idle-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes idle-z { 0% { opacity: 0; transform: translate(0, 0) scale(0.7); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(26px, -34px) scale(1.5); } }
+@keyframes idle-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes idle-out { 0% { opacity: 1; transform: none; } 30% { transform: translateY(-10px); } 100% { opacity: 0; transform: translateX(160px) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .idle-breathe, .idle-blink, .idle-z { animation: none; }
+}
+
+@property --anim-color {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0ea5e9;
+}
+:where(html[data-icon-color] :is(button:not(.btn-primary), a, [role='tab'], aside, header, nav) svg.lucide) {
+  color: var(--icon-color);
+}
+#feather-glow { position: fixed; inset: 0; z-index: 30; }
+html[data-idle='true'],
+html[data-idle='true'] #feather-glow::before {
+  animation-play-state: paused !important;
+}
+.react-flow__handle.pin-flow { background: #5865f2; border-radius: 3px; }
+.react-flow__handle.pin-yes { background: #34d399; }
+.react-flow__handle.pin-no { background: #f87171; }

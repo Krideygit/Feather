@@ -4,6 +4,7 @@ import { ContextMenu, type MenuEntry } from '../components/ContextMenu';
 import { getModules } from '../lib/modules';
 import { callRemote, getRemote, reconnect, restartShell, saveFontSize, savedFontSize, sendToTerminal, startShell, terminalFor, type SessionView } from '../lib/remote';
 import { attachHelp, handleHelpKey } from '../lib/termhelp';
+import { ShortcutRail } from './ShortcutRail';
 import { TermAssist } from './TermAssist';
 
 async function pasteInto(sid: string): Promise<void> {
@@ -138,60 +139,64 @@ export function TerminalView({ session, visible }: { session: SessionView; visib
   };
 
   const ended = session.status === 'closed' || session.shell === 'exited';
+  const hostId = session.hostId ? `host:${session.hostId}` : `adhoc:${session.username}@${session.host}:${session.port}`;
 
   return (
-    <div ref={outer} className="relative flex-1 min-w-0 min-h-0 bg-[#0f0f0f]">
-      <div
-        ref={holder}
-        className="absolute inset-0"
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setMenu({ x: e.clientX, y: e.clientY });
-        }}
-        data-terminal={sid}
-      />
-      <TermAssist sid={sid} visible={visible && !ended} outer={outer} />
-      {ended && (
-        <div className="absolute inset-x-0 bottom-0 animate-rise flex items-center gap-3 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur px-4 py-2.5">
-          <span className={`size-2 rounded-full ${session.status === 'closed' ? 'bg-red-500' : 'bg-amber-400'}`} />
-          <span className="flex-1 text-sm text-neutral-300">{session.status === 'closed' ? session.reason || 'Die Verbindung wurde getrennt.' : 'Das Terminal wurde beendet.'}</span>
-          {session.status === 'closed' ? (
-            <button className="btn btn-primary btn-sm" onClick={() => void reconnect(sid)} data-action="reconnect">
-              <Plug className="size-3.5" />
-              Neu verbinden
-            </button>
-          ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => restartShell(sid)} data-action="restart-shell">
-              <RotateCcw className="size-3.5" />
-              Neues Terminal
-            </button>
-          )}
-        </div>
-      )}
-      {scrolledUp && !ended && (
-        <button
-          className="absolute bottom-3 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900/95 px-3 py-1.5 text-xs font-medium text-neutral-200 shadow-lg backdrop-blur transition-colors hover:border-primary hover:text-primary animate-fade-in"
-          onClick={() => {
-            terminalFor(sid).term.scrollToBottom();
-            terminalFor(sid).term.focus();
+    <div className="flex flex-1 min-w-0 min-h-0 bg-[#0f0f0f]">
+      <div ref={outer} className="relative flex-1 min-w-0 min-h-0">
+        <div
+          ref={holder}
+          className="absolute inset-0"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ x: e.clientX, y: e.clientY });
           }}
-          data-action="term-bottom"
-        >
-          <ArrowDownToLine className="size-3.5" />
-          Nach unten
-        </button>
-      )}
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          entries={entries()}
-          onClose={() => {
-            setMenu(null);
-            requestAnimationFrame(() => terminalFor(sid).term.focus());
-          }}
+          data-terminal={sid}
         />
-      )}
+        <TermAssist sid={sid} visible={visible && !ended} outer={outer} />
+        {ended && (
+          <div className="absolute inset-x-0 bottom-0 animate-rise flex items-center gap-3 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur px-4 py-2.5">
+            <span className={`size-2 rounded-full ${session.status === 'closed' ? 'bg-red-500' : 'bg-amber-400'}`} />
+            <span className="flex-1 text-sm text-neutral-300">{session.status === 'closed' ? session.reason || 'Die Verbindung wurde getrennt.' : 'Das Terminal wurde beendet.'}</span>
+            {session.status === 'closed' ? (
+              <button className="btn btn-primary btn-sm" onClick={() => void reconnect(sid)} data-action="reconnect">
+                <Plug className="size-3.5" />
+                Neu verbinden
+              </button>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => restartShell(sid)} data-action="restart-shell">
+                <RotateCcw className="size-3.5" />
+                Neues Terminal
+              </button>
+            )}
+          </div>
+        )}
+        {scrolledUp && !ended && (
+          <button
+            className="absolute bottom-3 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900/95 px-3 py-1.5 text-xs font-medium text-neutral-200 shadow-lg backdrop-blur transition-colors hover:border-primary hover:text-primary animate-fade-in"
+            onClick={() => {
+              terminalFor(sid).term.scrollToBottom();
+              terminalFor(sid).term.focus();
+            }}
+            data-action="term-bottom"
+          >
+            <ArrowDownToLine className="size-3.5" />
+            Nach unten
+          </button>
+        )}
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            entries={entries()}
+            onClose={() => {
+              setMenu(null);
+              requestAnimationFrame(() => terminalFor(sid).term.focus());
+            }}
+          />
+        )}
+      </div>
+      <ShortcutRail sid={sid} host={hostId} disabled={ended || session.status !== 'ready'} />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LANG_CODE } from '../shared/langpack';
-import type { DatabaseSettings, TerminalSettings, SaveeyeSettings, Settings, Theme } from '../shared/types';
+import type { DatabaseSettings, IdleSettings, TerminalSettings, SaveeyeSettings, Settings, Theme } from '../shared/types';
 
 export const DEFAULTS: Settings = {
   runInBackground: true,
@@ -13,10 +13,29 @@ export const DEFAULTS: Settings = {
   database: { history: true, keepDeleted: true, autocomplete: true },
   terminal: { suggestions: true, hints: true },
   saveeye: { enabled: false, mode: 'ask', blurOnBlur: false },
+  idle: { enabled: true, minutes: 10 },
 };
 
 const file = (): string => path.join(app.getPath('userData'), 'settings.json');
 const HEX = /^#[0-9a-f]{6}$/i;
+
+function cleanThemeExtras(t: Partial<Theme>): Partial<Theme> {
+  const out: Partial<Theme> = {};
+  if (HEX.test(String(t.background))) out.background = String(t.background).toLowerCase();
+  if (HEX.test(String(t.text))) out.text = String(t.text).toLowerCase();
+  if (HEX.test(String(t.icon))) out.icon = String(t.icon).toLowerCase();
+  const scale = Number(t.scale);
+  if (Number.isFinite(scale) && scale >= 80 && scale <= 130 && Math.round(scale) !== 100) out.scale = Math.round(scale);
+  const a = t.animation;
+  if (a && typeof a === 'object' && Array.isArray(a.colors)) {
+    const colors = a.colors.filter((c): c is string => typeof c === 'string' && HEX.test(c)).map((c) => c.toLowerCase()).slice(0, 6);
+    if (colors.length >= 2) {
+      const speed = Number(a.speed);
+      out.animation = { enabled: a.enabled === true, colors, speed: Number.isFinite(speed) ? Math.max(4, Math.min(120, Math.round(speed))) : 20, target: a.target === 'accent' || a.target === 'glow' ? a.target : 'both' };
+    }
+  }
+  return out;
+}
 
 function cleanTheme(raw: unknown): Theme | null {
   const t = raw as Partial<Theme> | null;
@@ -29,6 +48,7 @@ function cleanTheme(raw: unknown): Theme | null {
     accent: String(t.accent).toLowerCase(),
     hue: Math.max(0, Math.min(360, Number(t.hue) || 0)),
     saturation: Math.max(0, Math.min(40, Number(t.saturation) || 0)),
+    ...cleanThemeExtras(t),
   };
 }
 
@@ -47,6 +67,15 @@ function cleanDatabase(raw: unknown, base: DatabaseSettings): DatabaseSettings {
     history: typeof s.history === 'boolean' ? s.history : base.history,
     keepDeleted: typeof s.keepDeleted === 'boolean' ? s.keepDeleted : base.keepDeleted,
     autocomplete: typeof s.autocomplete === 'boolean' ? s.autocomplete : base.autocomplete,
+  };
+}
+
+function cleanIdle(raw: unknown, base: IdleSettings): IdleSettings {
+  const s = (raw ?? {}) as Partial<IdleSettings>;
+  const minutes = Number(s.minutes);
+  return {
+    enabled: typeof s.enabled === 'boolean' ? s.enabled : base.enabled,
+    minutes: Number.isFinite(minutes) && minutes > 0 ? Math.max(1, Math.min(240, Math.round(minutes))) : base.minutes,
   };
 }
 
@@ -70,6 +99,7 @@ function normalize(raw: Partial<Settings>, base: Settings): Settings {
     onboarded: typeof raw.onboarded === 'boolean' ? raw.onboarded : base.onboarded,
     database: cleanDatabase(raw.database, base.database),
     terminal: cleanTerminal(raw.terminal, base.terminal),
+    idle: cleanIdle(raw.idle, base.idle),
   };
 }
 
@@ -77,7 +107,7 @@ export function get(): Settings {
   try {
     return normalize(JSON.parse(fs.readFileSync(file(), 'utf8')) as Partial<Settings>, DEFAULTS);
   } catch {
-    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye }, database: { ...DEFAULTS.database }, terminal: { ...DEFAULTS.terminal } };
+    return { ...DEFAULTS, themes: [], saveeye: { ...DEFAULTS.saveeye }, database: { ...DEFAULTS.database }, terminal: { ...DEFAULTS.terminal }, idle: { ...DEFAULTS.idle } };
   }
 }
 

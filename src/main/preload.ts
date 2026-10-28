@@ -68,7 +68,7 @@ const bridge: FeatherBridge = {
     };
   },
   saveeyeAnswer: (allow) => ipcRenderer.send('saveeye:answer', allow),
-  setTitleBar: (color, symbol) => ipcRenderer.send('window:titleBar', color, symbol),
+  setTitleBar: (color, symbol, zoom) => ipcRenderer.send('window:titleBar', color, symbol, zoom),
   backupCreate: (options) => ipcRenderer.invoke('backup:create', options),
   backupPick: () => ipcRenderer.invoke('backup:pick'),
   backupRestore: (options) => ipcRenderer.invoke('backup:restore', options),

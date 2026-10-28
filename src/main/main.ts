@@ -162,9 +162,11 @@ function registerIpc(): void {
     return next;
   });
   ipcMain.on('saveeye:answer', (_event, allow: unknown) => saveeye.answer(allow === true));
-  ipcMain.on('window:titleBar', (_event, color: unknown, symbol: unknown) => {
+  ipcMain.on('window:titleBar', (_event, color: unknown, symbol: unknown, zoom: unknown) => {
     if (win && !win.isDestroyed() && typeof color === 'string' && typeof symbol === 'string' && /^#[0-9a-f]{6}$/i.test(color) && /^#[0-9a-f]{6}$/i.test(symbol)) {
-      win.setTitleBarOverlay({ color, symbolColor: symbol, height: 40 });
+      const factor = typeof zoom === 'number' && Number.isFinite(zoom) ? Math.max(0.8, Math.min(1.3, zoom)) : 1;
+      win.webContents.setZoomFactor(factor);
+      win.setTitleBarOverlay({ color, symbolColor: symbol, height: Math.round(40 * factor) });
       win.setBackgroundColor(color);
     }
   });

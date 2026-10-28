@@ -24,7 +24,7 @@ Die Seitenleiste enthält die Hauptbereiche.
 | Übersicht | Alle Services des aktiven Profils auf einen Blick |
 | Datenbanken | Lokale MariaDB-Server |
 | Webserver | Lokale Nginx- und Apache-Instanzen |
-| Packages | Fertige Server, derzeit Minecraft (Vanilla und Paper) und FiveM |
+| Packages | Fertige Server, derzeit Minecraft (Vanilla und Paper), FiveM, Mailpit und Discord-Bots |
 | Terminal | Verbindungen zu Servern per SSH, SFTP und FTP |
 | Feather SQL | SQL-Client für lokale und entfernte Datenbanken |
 | Einstellungen | Themen, Sprache, Sicherung, Saveeye, Plugins, Hilfen |

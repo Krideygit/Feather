@@ -12,8 +12,26 @@ Eigene Themen legst du mit **Eigenes Thema erstellen** an.
 | --- | --- |
 | Name | Bezeichnung in der Liste |
 | Modus | Dunkel oder Hell |
-| Akzentfarbe | Farbe von Schaltflächen, Markierungen und Hervorhebungen |
-| Farbton und Sättigung | Tönung der Flächen und Texte |
+| Primärfarbe | Farbe von Schaltflächen, Markierungen und Hervorhebungen |
+| Hintergrund | Eigene Hintergrundfarbe, Flächen und Ränder passen sich an |
+| Textfarbe | Farbe von Überschriften und Text, abgestuft bis zu Hinweisen |
+| Symbolfarbe | Farbe der Symbole in Schaltflächen, Seitenleiste und Kopfzeilen |
+| Farbton und Intensität | Tönung der Flächen |
+| Größe | Skaliert die gesamte Oberfläche zwischen 80 und 130 Prozent |
+
+Hintergrund, Textfarbe und Symbolfarbe sind optional. Der Knopf neben dem Feld stellt wieder auf automatisch zurück.
+
+### Animation
+
+Mit **Farbverlauf animieren** gehen bis zu sechs gewählte Farben fließend ineinander über. Fertige Farbverläufe wie Polarlicht oder Ozean sind als Vorlage hinterlegt.
+
+| Wirkt auf | Effekt |
+| --- | --- |
+| Primärfarbe | Schaltflächen und Hervorhebungen wechseln langsam die Farbe |
+| Schimmer | Ein weicher Farbverlauf wandert über das Fenster |
+| Beides | Beides zusammen |
+
+Die Dauer eines Durchlaufs stellst du zwischen 6 und 90 Sekunden ein. Langsamere Animationen wirken ruhiger und kosten weniger Leistung. Im [Ruhemodus](#allgemein) pausiert die Animation.
 
 Eine Vorschau zeigt das Ergebnis, bevor du speicherst. Eigene Themen lassen sich bearbeiten und löschen. Terminal und Blueprint-Fläche bleiben auch im hellen Modus dunkel.
 
@@ -94,4 +112,7 @@ Plugins laufen mit den Rechten von Feather und können auf deine Dateien und das
 | Option | Wirkung |
 | --- | --- |
 | Im Hintergrund weiterlaufen | Beim Schließen des Fensters bleiben Services aktiv, Feather liegt im Infobereich der Taskleiste |
+| Ruhemodus | Nach einer einstellbaren Zeit ohne Eingabe (Standard 10 Minuten) zeigt Feather einen schlafenden Roboter und pausiert Animationen, Unschärfe und das Cursor-Blinken. Jede Eingabe weckt Feather wieder auf |
 | Einrichtungsassistent | Öffnet den Assistenten erneut |
+
+Im Ruhemodus laufen Services, Terminals und Verbindungen unverändert weiter. Feather spart nur Darstellungsaufwand.

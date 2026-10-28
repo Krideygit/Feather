@@ -315,9 +315,20 @@ export function TerminalSection() {
 
 export function GeneralSection() {
   const runInBackground = useAppState((s) => s.settings.runInBackground);
+  const idle = useAppState((s) => s.settings.idle);
   return (
     <div className="space-y-5 max-w-xl animate-fade-in" data-section="general">
       <Toggle checked={runInBackground} onChange={(v) => void updateSettings({ runInBackground: v })} label="Im Hintergrund weiterlaufen" description="Beim Schließen des Fensters bleiben deine Services aktiv. Feather liegt dann im Infobereich der Taskleiste." />
+      <div className="space-y-3">
+        <Toggle checked={idle.enabled} onChange={(enabled) => void updateSettings({ idle: { ...idle, enabled } })} label="Ruhemodus" description="Nach einer Weile ohne Eingabe zeigt Feather einen schlafenden Roboter und pausiert Animationen, Unschärfe und das Cursor-Blinken. Sobald du die Maus bewegst oder eine Taste drückst, ist alles wieder da. Laufende Services und Verbindungen bleiben unberührt." />
+        {idle.enabled && (
+          <div className="flex items-center gap-3 pl-0.5" data-section="idle">
+            <label htmlFor="idle-minutes" className="text-sm text-neutral-300">Ruhemodus nach</label>
+            <input id="idle-minutes" type="number" min={1} max={240} className="input h-8 w-20 py-0" value={idle.minutes} onChange={(e) => { const minutes = Math.max(1, Math.min(240, Math.round(Number(e.target.value)) || 1)); void updateSettings({ idle: { ...idle, minutes } }); }} data-bind="idle-minutes" />
+            <span className="text-sm text-neutral-500">Minuten ohne Eingabe</span>
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-neutral-100">Einrichtungsassistent</p>

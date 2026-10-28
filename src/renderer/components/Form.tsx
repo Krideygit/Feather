@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react';
-import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 
 export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -20,14 +20,15 @@ interface ToggleProps {
 }
 
 export function Toggle({ checked, onChange, label, description, disabled }: ToggleProps) {
+  const id = useId();
   return (
-    <label className={`flex items-start justify-between gap-4 ${disabled ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+    <label htmlFor={id} className={`flex items-start justify-between gap-4 ${disabled ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
       <span>
         <span className="block text-sm text-neutral-200">{label}</span>
         {description && <span className="block text-xs text-neutral-500 mt-0.5">{description}</span>}
       </span>
       <span className="mt-0.5">
-        <input type="checkbox" className="peer sr-only" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+        <input id={id} type="checkbox" className="peer sr-only" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
         <span className="toggle" />
       </span>
     </label>

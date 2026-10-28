@@ -9,6 +9,7 @@ import { toast } from '../components/Toast';
 import { TypeIcon } from '../components/TypeIcon';
 import { applyServiceView, attempt, call, isInstalled, refreshRuntimes } from '../lib/api';
 import { formatBytes } from '../lib/format';
+import { openBotManager } from '../bot/BotManager';
 import { GROUPS, PACKAGES, defaultOptions, isAvailable, type PackageDef } from '../lib/packages';
 import { CATEGORIES, TYPES } from '../lib/services';
 import { getState, useAppState, useBus } from '../lib/store';
@@ -46,6 +47,11 @@ export function openChooser(): void {
   ));
 }
 
+export function openPackage(pkg: PackageDef): void {
+  if (pkg.tool === 'bots') openBotManager();
+  else openCreateDialog('package', pkg);
+}
+
 export const openCreateDialog = (category: Category, pkg?: PackageDef): void =>
   openLayer((close) => <CreateDialog category={category} pkg={pkg} onClose={close} />);
 
@@ -69,7 +75,7 @@ export function openPackageChooser(): void {
                     className="card card-hover flex items-center gap-3 p-3 text-left disabled:opacity-50 disabled:pointer-events-none"
                     onClick={() => {
                       close();
-                      openCreateDialog('package', pkg);
+                      openPackage(pkg);
                     }}
                   >
                     <div className="size-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
@@ -178,7 +184,7 @@ function CreateDialog({ category, pkg, onClose }: { category: Category; pkg?: Pa
     if (!Number.isInteger(portNumber)) return void toast('Bitte gib einen gültigen Port an.', 'error');
     if (web && !folder.trim()) return void toast('Bitte wähle einen Ordner aus.', 'error');
     if (type === 'fivem' && !String(options.licenseKey ?? '').trim()) return void toast('Bitte gib deinen FiveM-Lizenzschlüssel ein.', 'error');
-    if (isPackage && type !== 'fivem' && options.eula !== true) return void toast('Bitte akzeptiere die Minecraft-EULA.', 'error');
+    if (isPackage && (type === 'minecraft' || type === 'paper') && options.eula !== true) return void toast('Bitte akzeptiere die Minecraft-EULA.', 'error');
 
     setBusy({ phase: isInstalled(type, version) ? 'create' : 'download', percent: -1, bytes: 0, total: 0 });
     if (!isInstalled(type, version)) {
@@ -319,7 +325,7 @@ function CreateDialog({ category, pkg, onClose }: { category: Category; pkg?: Pa
           )}
         </div>
 
-        {isPackage && <PackageOptions type={type} options={options} onChange={setOptions} showEula={type !== 'fivem'} />}
+        {isPackage && <PackageOptions type={type} options={options} onChange={setOptions} showEula={type === 'minecraft' || type === 'paper'} />}
 
         {web && (
           <>

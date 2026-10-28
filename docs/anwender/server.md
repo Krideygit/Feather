@@ -35,13 +35,25 @@ Strg + V fügt den Inhalt der Zwischenablage ein. Das Terminal behält dabei den
 
 Das Terminal schlägt beim Tippen Befehle vor und weist auf Fehler hin, siehe [Vorschläge](vorschlaege.md).
 
+### Shortcuts
+
+Die Leiste rechts am Terminal nimmt eigene Buttons auf. Ein Klick schickt den hinterlegten Befehl an das Terminal, so startest oder stoppst du zum Beispiel einen Minecraft-Server mit einem Klick.
+
+- **Plus** in der Leiste legt einen Shortcut an. Name, Befehl und Symbol sind frei wählbar, Vorlagen für Minecraft, Dienste, Protokolle und Speicherplatz füllen die Felder vor.
+- Mehrere Zeilen im Befehl laufen nacheinander. Was du im Terminal halb getippt hast, löscht Feather vorher.
+- **Vor dem Ausführen nachfragen** zeigt den Befehl und wartet auf deine Bestätigung. Das ist sinnvoll bei Befehlen, die etwas stoppen oder löschen.
+- **Nur für diesen Server** begrenzt den Shortcut auf die aktuelle Verbindung, sonst erscheint er überall.
+- Rechtsklick auf einen Button: ausführen, bearbeiten, verschieben oder löschen.
+
+Die Befehle in den Vorlagen sind Beispiele. Passe Ordner, Skript- und Dienstnamen an deinen Server an. Shortcuts liegen nur auf deinem Rechner.
+
 ## Dateiverwaltung
 
 Links neben dem Terminal liegt die Dateiansicht des Servers.
 
 - Ordner durchsuchen, Dateien umbenennen, verschieben, löschen und neue Dateien oder Ordner anlegen
 - Hochladen und Herunterladen per Schaltfläche oder Drag and Drop, auch ganze Ordner
-- Dateien direkt im Editor öffnen und speichern
+- Dateien direkt im Editor öffnen und speichern. Der Editor färbt Code und Konfigurationsdateien ein, etwa JavaScript, Python, PHP, Java, SQL, JSON, YAML, HTML, CSS, Markdown, Shell-Skripte, Nginx-Konfigurationen und `.properties`. Die Sprache erkennt Feather am Dateinamen und bei Skripten an der ersten Zeile. Strg + F sucht im Text
 - Dateien und Ordner **fixieren**: Rechtsklick › **Fixieren**. Fixierte Einträge stehen als Schnellzugriff über der Liste, in ihrem Ordner zuerst und mit Pin-Symbol. Ein Klick auf einen fixierten Ordner zeigt ihn als Wurzel. **Nur Fixierte zeigen** (Rechtsklick in die freie Fläche) blendet alles andere aus.
 - Einträge **ausblenden**: Rechtsklick › **Ausblenden**. Unten in der Statusleiste zeigt „n ausgeblendet“ sie wieder an, **Einblenden** macht es dauerhaft rückgängig.
 - **Symbol ändern …** (Rechtsklick auf einen Ordner): eines der mitgelieferten Symbole in einer Farbe oder ein eigenes Bild, zum Beispiel das Logo eines Programms. Symbole, Fixierungen und ausgeblendete Einträge gelten nur in Feather und pro Server. Auf dem Server ändert sich nichts

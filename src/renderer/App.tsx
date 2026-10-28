@@ -1,6 +1,7 @@
 import { ChevronsUpDown, CircleAlert, Database, Globe, LayoutDashboard, Package, Settings as SettingsIcon, Table2, Terminal, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './components/Bits';
+import { IdleGuard } from './components/IdleGuard';
 import { LayerHost } from './components/Layers';
 import { PluginButtons } from './components/PluginUi';
 import { SaveeyeGuard } from './components/SaveeyeGuard';
@@ -141,17 +142,17 @@ function Page() {
   return (
     <>
       {content && (
-        <div key={route} className="flex flex-1 min-h-0 flex-col animate-rise">
+        <div key={route} className="flex flex-1 min-h-0 min-w-0 flex-col animate-rise">
           {content}
         </div>
       )}
       {(route === 'sql' || sqlVisited) && (
-        <div className={route === 'sql' ? 'flex flex-1 min-h-0 flex-col animate-rise' : 'hidden'}>
+        <div className={route === 'sql' ? 'flex flex-1 min-h-0 min-w-0 flex-col animate-rise' : 'hidden'}>
           <SqlPage />
         </div>
       )}
       {(route === 'server' || live) && (
-        <div className={route === 'server' ? 'flex flex-1 min-h-0 flex-col animate-rise' : 'hidden'}>
+        <div className={route === 'server' ? 'flex flex-1 min-h-0 min-w-0 flex-col animate-rise' : 'hidden'}>
           <ServerPage />
         </div>
       )}
@@ -235,6 +236,7 @@ export function App() {
       {ready && !coreError && !settings.onboarded && <Welcome />}
       <LayerHost />
       <SaveeyeGuard />
+      <IdleGuard />
       <ToastHost />
     </div>
   );

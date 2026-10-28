@@ -127,7 +127,7 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
   const Icon = ICON[source?.kind ?? 'local'];
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col" data-sql-workbench>
+    <div className="flex flex-1 min-h-0 min-w-0 flex-col" data-sql-workbench>
       <div className={`shrink-0 flex items-center gap-3 px-4 border-b border-neutral-800 ${compact ? 'h-11' : 'h-12'}`}>
         <div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center">
           <Icon className="size-4" />
@@ -151,7 +151,7 @@ export function Workbench({ sourceId, onExit, exitLabel = 'Trennen', compact }: 
           </button>
         )}
       </div>
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 min-w-0">
         <aside className={`${compact ? 'w-56' : 'w-72'} shrink-0 border-r border-neutral-800 bg-neutral-900/30`}>
           <Tree source={sourceId} onOpenTable={openTable} onQuery={newQuery} onDropped={dropped} reloadKey={reload} refreshKey={refresh} />
         </aside>

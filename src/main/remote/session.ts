@@ -137,6 +137,7 @@ export class Session {
       });
       client.on('ready', () => {
         ready = true;
+        client.setNoDelay(true);
         client.sftp((err, sftp) => {
           if (err) {
             if (this.spec.protocol === 'sftp') return reject(new RemoteError('Auf diesem Server ist SFTP nicht aktiviert.'));

@@ -152,6 +152,58 @@ final class PackageDrivers {
         }
     };
 
+    static final Drivers.Driver MAILPIT = new Drivers.Driver() {
+        @Override
+        Map<String, Object> options(Map<String, Object> input, Map<String, Object> current, boolean creating) {
+            Map<String, Object> m = merge(current, input);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("smtpPort", number(m.get("smtpPort"), 1025, 1, 65535));
+            out.put("persist", flag(m.get("persist"), true));
+            out.put("maxMessages", number(m.get("maxMessages"), 500, 10, 100000));
+            out.put("lan", flag(m.get("lan"), false));
+            return out;
+        }
+
+        @Override
+        void prepare(Service s, Path base, Consumer<String> log) throws Exception {
+            Files.createDirectories(s.dir());
+            if (number(s.options.get("smtpPort"), 1025, 1, 65535) == s.port) {
+                throw new IllegalStateException("Der SMTP-Port muss sich vom Port der Weboberfläche unterscheiden.");
+            }
+        }
+
+        @Override
+        List<String> command(Service s, Path base) {
+            String bind = flag(s.options.get("lan"), false) ? "0.0.0.0" : "127.0.0.1";
+            List<String> cmd = new ArrayList<>(List.of(
+                    base.resolve("mailpit.exe").toString(),
+                    "--listen", bind + ":" + s.port,
+                    "--smtp", bind + ":" + number(s.options.get("smtpPort"), 1025, 1, 65535),
+                    "--max", String.valueOf(number(s.options.get("maxMessages"), 500, 10, 100000))));
+            if (flag(s.options.get("persist"), true)) {
+                cmd.add("--database");
+                cmd.add(s.dir().resolve("mailpit.db").toString());
+            }
+            return cmd;
+        }
+
+        @Override
+        Path workDir(Service s, Path base) {
+            return s.dir();
+        }
+
+        @Override
+        Map<String, Object> connection(Service s) {
+            long smtp = number(s.options.get("smtpPort"), 1025, 1, 65535);
+            return Json.obj("host", "localhost", "port", (long) s.port, "smtp", smtp, "url", "http://localhost:" + s.port);
+        }
+
+        @Override
+        long startTimeoutMs() {
+            return 30_000;
+        }
+    };
+
     static final Drivers.Driver FIVEM = new Drivers.Driver() {
         @Override
         Map<String, Object> options(Map<String, Object> input, Map<String, Object> current, boolean creating) {

@@ -17,6 +17,25 @@ export function PackageOptions({ type, options, onChange, locked = false, showEu
   const text = (key: string): string => String(options[key] ?? '');
   const flag = (key: string): boolean => options[key] === true;
 
+  if (type === 'mailpit') {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="SMTP-Port" hint="Hierhin schickt deine Anwendung die Test-Mails. Die Weboberfläche läuft auf dem Port oben.">
+            <input className="input font-mono" type="number" min={1} max={65535} value={text('smtpPort')} disabled={locked} onChange={(e) => set('smtpPort', Number(e.target.value))} data-bind="mailpit-smtp" />
+          </Field>
+          <Field label="Max. Nachrichten" hint="Ältere Mails werden gelöscht.">
+            <input className="input font-mono" type="number" min={10} max={100000} value={text('maxMessages')} disabled={locked} onChange={(e) => set('maxMessages', Number(e.target.value))} />
+          </Field>
+        </div>
+        <div className="space-y-3">
+          <Toggle checked={flag('persist')} onChange={(v) => set('persist', v)} disabled={locked} label="Mails speichern" description="Das Postfach bleibt nach einem Neustart erhalten. Sonst ist es beim Stoppen leer." />
+          <Toggle checked={flag('lan')} onChange={(v) => set('lan', v)} disabled={locked} label="Im Netzwerk erreichbar" description="Andere Rechner im LAN können Mails senden und das Postfach öffnen. Sonst nur dieser Rechner." />
+        </div>
+      </div>
+    );
+  }
+
   if (type === 'fivem') {
     return (
       <div className="space-y-4">

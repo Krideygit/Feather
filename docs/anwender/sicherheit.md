@@ -12,6 +12,7 @@ Feather arbeitet lokal. Es gibt kein Benutzerkonto und keine Übermittlung von N
 | Änderungsverlauf von Feather SQL | `%APPDATA%\Feather®\sql-history.json` | Verschlüsselt |
 | Befehlsverlauf des Terminals | `%APPDATA%\Feather®\terminal-history.json` | Verschlüsselt |
 | Einstellungen und Themen | `%APPDATA%\Feather®\settings.json` | Unverschlüsselt, enthält keine Geheimnisse |
+| Discord-Bots, Shortcuts, Blueprints | Browser-Speicher von Feather im Ordner `%APPDATA%\Feather®` | Unverschlüsselt. Bot-Token und Passwörter speichert Feather dort nie |
 | Services, Datenbanken, Plugins | `%USERPROFILE%\.feather` | Unverschlüsselt im Dateisystem |
 
 Verschlüsselte Daten sind an dein Windows-Benutzerkonto gebunden. Ein anderer Benutzer oder ein anderer Rechner kann sie nicht lesen. Steht die Verschlüsselung des Betriebssystems nicht zur Verfügung, speichert Feather keine Passwörter und fragt bei jeder Verbindung danach. Die Verläufe liegen in diesem Fall unverschlüsselt vor.
@@ -37,6 +38,8 @@ Beim Anlegen von Services lädt Feather Programme aus den offiziellen Quellen de
 | Minecraft | piston-meta.mojang.com |
 | Paper | fill.papermc.io |
 | FiveM | changelogs-live.fivem.net, github.com/citizenfx |
+| Mailpit | api.github.com, github.com/axllent/mailpit |
+| Discord-Bots (auf dem Server) | registry.npmjs.org (discord.js, dotenv) |
 | MariaDB-Treiber für Java | repo1.maven.org |
 
 ## Saveeye

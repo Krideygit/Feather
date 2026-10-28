@@ -11,6 +11,7 @@ Feather startet und verwaltet Dienste direkt auf deinem Rechner, ohne Container 
 | Webserver | Apache | 8081 |
 | Packages | Minecraft (Vanilla), Minecraft (Paper) | 25565 |
 | Packages | FiveM | 30120 |
+| Packages | Mailpit | 8025 (Weboberfläche), 1025 (SMTP) |
 
 ## Service anlegen
 
@@ -21,6 +22,7 @@ Feather startet und verwaltet Dienste direkt auf deinem Rechner, ohne Container 
    - MariaDB: Passwort des Benutzers `root`
    - Nginx und Apache: Ordner, der als Document-Root ausgeliefert wird, sowie die Optionen **Single-Page-App-Modus** (unbekannte Pfade liefern `index.html`) und **Verzeichnislisting**
    - Packages: Arbeitsspeicher (512 MB bis 16 GB) und bei Minecraft die Zustimmung zur EULA von Mojang
+   - Mailpit: SMTP-Port, ob Mails gespeichert werden und wie viele Nachrichten das Postfach höchstens hält
 5. Mit **Direkt nach dem Erstellen starten** läuft der Dienst sofort.
 
 ## Service steuern
@@ -58,3 +60,16 @@ Der Blueprint-Editor baut SQL-Abfragen grafisch zusammen. Du ziehst Knoten auf d
 | Notiz | Freitext auf der Fläche |
 
 Ein Rechtsklick öffnet das Kontextmenü eines Knotens, dort lassen sich Farbe, Sperre und Kommentar festlegen. Der erzeugte SQL-Befehl ist im Editor sichtbar.
+
+## Discord-Bots
+
+Das Package Discord-Server ist kein Dienst auf deinem Rechner. Es baut Bots aus Knoten und stellt sie auf einem Server bereit, siehe [Discord-Bots](discord-bots.md).
+
+## Mailpit
+
+Mailpit ist ein lokaler Mail-Server für Entwicklung und Tests. Deine Anwendung schickt Mails an den SMTP-Port von Mailpit, und sie landen in einem Postfach im Browser, statt wirklich zugestellt zu werden.
+
+- Als Mail-Server trägst du in deiner Anwendung `localhost` mit dem SMTP-Port ein, ohne Anmeldung und ohne Verschlüsselung.
+- In den Details öffnet ein Klick auf die Adresse das Postfach im Browser.
+- Mit **Mails speichern** bleibt das Postfach nach einem Neustart erhalten.
+- Standardmäßig lauscht Mailpit nur auf `127.0.0.1`. **Im Netzwerk erreichbar** öffnet es für andere Rechner im LAN.

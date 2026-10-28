@@ -27,7 +27,8 @@ public final class Runtimes {
             "apache", "bin/httpd.exe",
             "minecraft", "server.jar",
             "paper", "server.jar",
-            "fivem", "FXServer.exe");
+            "fivem", "FXServer.exe",
+            "mailpit", "mailpit.exe");
 
     private static final String JAVA_MARKER = "java-version.txt";
 

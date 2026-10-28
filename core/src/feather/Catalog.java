@@ -32,6 +32,7 @@ public final class Catalog {
     private static final String MC_MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     private static final String PAPER_API = "https://fill.papermc.io/v3/projects/paper";
     private static final String FIVEM_API = "https://changelogs-live.fivem.net/api/changelog/versions/win32/server";
+    private static final String MAILPIT_API = "https://api.github.com/repos/axllent/mailpit/releases?per_page=12";
     private static final long TTL_MS = 60 * 60 * 1000L;
     private static final int MAX_GAME_VERSIONS = 15;
 
@@ -51,6 +52,7 @@ public final class Catalog {
             case "minecraft" -> minecraft();
             case "paper" -> paper();
             case "fivem" -> fivem();
+            case "mailpit" -> mailpit();
             default -> throw new IllegalArgumentException("Unbekannter Typ: " + type);
         };
         if (!list.isEmpty()) CACHE.put(type, new Cached(System.currentTimeMillis(), list));
@@ -202,6 +204,28 @@ public final class Catalog {
         out.add(new Version(recommended, "Empfohlen", String.valueOf(info.get("recommended_download")), null, null, null, "zip"));
         if (!latest.equals(recommended)) {
             out.add(new Version(latest, "Neueste", String.valueOf(info.get("latest_download")), null, null, null, "zip"));
+        }
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Version> mailpit() throws IOException, InterruptedException {
+        List<Version> out = new ArrayList<>();
+        for (Object o : (List<Object>) Json.parse(get(MAILPIT_API, null))) {
+            Map<String, Object> release = (Map<String, Object>) o;
+            if (Boolean.TRUE.equals(release.get("prerelease")) || Boolean.TRUE.equals(release.get("draft"))) continue;
+            String tag = String.valueOf(release.get("tag_name"));
+            String id = tag.startsWith("v") ? tag.substring(1) : tag;
+            if (!id.matches("\\d+(\\.\\d+)*")) continue;
+            for (Object a : (List<Object>) release.get("assets")) {
+                Map<String, Object> asset = (Map<String, Object>) a;
+                if (!"mailpit-windows-amd64.zip".equals(asset.get("name"))) continue;
+                String digest = String.valueOf(asset.get("digest"));
+                String sha = digest.startsWith("sha256:") ? digest.substring(7) : null;
+                out.add(new Version(id, out.isEmpty() ? "Neueste" : "Release", String.valueOf(asset.get("browser_download_url")), sha, sha == null ? null : "SHA-256", null, "zip"));
+                break;
+            }
+            if (out.size() >= 8) break;
         }
         return out;
     }
